@@ -123,6 +123,7 @@ def clear_all_data() -> None:
     with connect() as conn:
         for table in [
             "inbound_messages",
+            "outbound_messages",
             "model_runs",
             "nudges",
             "calls",
@@ -595,6 +596,50 @@ def add_inbound_message(
             (message_id, sender, channel, body, matched_member_id, matched_contact_id, status, now_iso()),
         )
     return message_id
+
+
+def add_outbound_message(
+    request_id: str | None,
+    recipient_member_id: str | None,
+    recipient: str,
+    body: str,
+    status: str,
+    channel: str = "whatsapp",
+    provider_sid: str | None = None,
+    error: str | None = None,
+) -> str:
+    message_id = new_id("outbound")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO outbound_messages
+            (id, request_id, recipient_member_id, channel, recipient, body, provider_sid, status, error, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (message_id, request_id, recipient_member_id, channel, recipient, body, provider_sid, status, error, now_iso()),
+        )
+        if request_id and status in {"sent", "queued"}:
+            conn.execute("UPDATE checkup_requests SET status = 'sent' WHERE id = ?", (request_id,))
+    return message_id
+
+
+def outbound_rows(limit: int = 20) -> list[dict[str, Any]]:
+    return rows(
+        """
+        SELECT o.created_at AS Created,
+               COALESCE(m.name, 'Unknown') AS Recipient,
+               o.channel AS Channel,
+               o.status AS Status,
+               COALESCE(o.provider_sid, '') AS SID,
+               COALESCE(o.error, '') AS Error,
+               o.body AS Body
+        FROM outbound_messages o
+        LEFT JOIN members m ON m.id = o.recipient_member_id
+        ORDER BY o.created_at DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
 
 
 def resolve_alert(alert_id: str, resolved_by: str, notes: str) -> None:

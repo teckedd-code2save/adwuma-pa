@@ -7,7 +7,7 @@ import gradio as gr
 from config.models import ASR_CONFIG, LLM_CONFIG, TRANSLATION_CONFIG, TTS_CONFIG, total_parameter_budget_b
 from db import database as db
 from services.relay import dashboard_rows, scan_silence, simulate_nudge
-from services import modal_client, pipeline
+from services import modal_client, pipeline, twilio_client
 
 FAMILY_HEADERS = [
     "Name",
@@ -31,6 +31,7 @@ CHECKIN_HEADERS = ["Submitted", "Source", "Input", "Status", "Concern", "Summary
 REQUEST_HEADERS = ["Request", "Token", "Member", "Type", "Reason", "Priority", "Status", "Created", "Completed"]
 NUDGE_HEADERS = ["Sent", "Contact", "Request", "Responded", "Check-in"]
 AFFILIATION_HEADERS = ["Subject", "Related", "Relationship", "Care role", "Priority", "Coordinator", "Notes"]
+OUTBOUND_HEADERS = ["Created", "Recipient", "Channel", "Status", "SID", "Error", "Body"]
 ASR_MODEL_CHOICES = [
     ("MMS-1B-all (Akan)", "primary"),
     ("Adwuma Pa Akan Whisper fine-tune", "fine_tuned"),
@@ -442,6 +443,10 @@ def open_loop_table_value():
 
 def request_table_value():
     return table_value(db.request_rows(), REQUEST_HEADERS)
+
+
+def outbound_table_value():
+    return table_value(db.outbound_rows(), OUTBOUND_HEADERS)
 
 
 def active_requests_html(limit=8):
@@ -976,7 +981,41 @@ def create_manual_request(member_id, reason_code, reason_detail, request_type, p
     return (
         f"Created secure check-in link:\n\n`/checkin/{request['token']}`",
         active_requests_html(),
+        gr.Dropdown(choices=pending_request_choices()),
     )
+
+
+def pending_request_choices():
+    rows = db.rows(
+        """
+        SELECT r.id, m.name, r.reason_code, r.priority, r.status
+        FROM checkup_requests r
+        JOIN members m ON m.id = r.member_id
+        WHERE r.status IN ('pending', 'needs_review')
+        ORDER BY
+          CASE r.priority WHEN 'red' THEN 0 WHEN 'amber' THEN 1 ELSE 2 END,
+          r.created_at DESC
+        LIMIT 30
+        """
+    )
+    return [(f"{row['name']} - {friendly_reason(row['reason_code'])} ({row['priority']}, {row['status']})", row["id"]) for row in rows]
+
+
+def send_checkin_whatsapp(request_id):
+    if not request_id:
+        raise gr.Error("Choose a pending check-in request.")
+    result = twilio_client.send_request_link(request_id)
+    choices = gr.Dropdown(choices=pending_request_choices())
+    message = result.message
+    if result.sid:
+        message = f"{message} SID: {result.sid}"
+    return message, active_requests_html(), outbound_table_value(), choices
+
+
+def twilio_status_markdown():
+    if twilio_client.configured():
+        return "Twilio WhatsApp: **configured**"
+    return "Twilio WhatsApp: **not configured**. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM`."
 
 
 def run_silence_scan():
@@ -1148,6 +1187,13 @@ def build_app():
                     create_request_btn = gr.Button("Create secure check-in link", variant="primary")
                     create_request_output = gr.Markdown()
 
+                with gr.Accordion("Send WhatsApp link", open=True):
+                    twilio_status = gr.Markdown(twilio_status_markdown())
+                    send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending check-in")
+                    send_whatsapp_btn = gr.Button("Send selected link by WhatsApp", variant="primary")
+                    send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
+                    outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
+
                 with gr.Accordion("Record received response", open=False):
                     gr.Markdown(
                         "Coordinator-only intake for a response received by WhatsApp, phone call, or manual test. "
@@ -1270,7 +1316,12 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
         create_request_btn.click(
             create_manual_request,
             inputs=[request_member_picker, manual_reason, manual_detail, manual_type, manual_priority],
-            outputs=[create_request_output, requests],
+            outputs=[create_request_output, requests, send_request_picker],
+        )
+        send_whatsapp_btn.click(
+            send_checkin_whatsapp,
+            inputs=[send_request_picker],
+            outputs=[send_whatsapp_output, requests, outbound_messages, send_request_picker],
         )
         nudge_btn.click(nudge, inputs=[relay_member], outputs=[nudge_output])
         generate_tts_prompt.click(build_tts_prompt, inputs=[tts_member, tts_prompt_type, tts_language], outputs=[tts_text])

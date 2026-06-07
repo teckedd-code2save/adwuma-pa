@@ -53,12 +53,27 @@ def send_request_link(request_id: str) -> TwilioResult:
     )
     if not request:
         return TwilioResult(False, "failed", "No request found.")
-    body = (
+    body = request_message_body(request)
+    result = send_whatsapp(request.get("whatsapp") or request.get("phone"), body)
+    db.add_outbound_message(
+        request_id=request["id"],
+        recipient_member_id=request["member_id"],
+        recipient=request.get("whatsapp") or request.get("phone"),
+        body=body,
+        status=result.status,
+        provider_sid=result.sid,
+        error=None if result.ok else result.message,
+    )
+    return result
+
+
+def request_message_body(request: dict) -> str:
+    reason = (request.get("reason_code") or "check-in").replace("_", " ")
+    return (
         f"Adwuma Pa check-in for {request['name']}. "
-        f"Reason: {request['reason_code']}. "
+        f"Reason: {reason}. "
         f"Please respond here: {checkin_url(request['token'])}"
     )
-    return send_whatsapp(request.get("whatsapp") or request.get("phone"), body)
 
 
 def record_inbound(sender: str, body: str, channel: str = "whatsapp") -> str:

@@ -135,3 +135,16 @@ CREATE TABLE IF NOT EXISTS inbound_messages (
   status TEXT DEFAULT 'unmatched',
   created_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS outbound_messages (
+  id TEXT PRIMARY KEY,
+  request_id TEXT REFERENCES checkup_requests(id),
+  recipient_member_id TEXT REFERENCES members(id),
+  channel TEXT DEFAULT 'whatsapp',
+  recipient TEXT,
+  body TEXT,
+  provider_sid TEXT,
+  status TEXT NOT NULL,
+  error TEXT,
+  created_at TEXT NOT NULL
+);
