@@ -41,24 +41,38 @@ def normalize_whatsapp_to(value: str | None) -> str:
     return f"whatsapp:{phone}" if phone else ""
 
 
+def configured_from() -> str:
+    return normalize_whatsapp_to(os.getenv("TWILIO_WHATSAPP_FROM"))
+
+
 def send_whatsapp(to: str, body: str) -> TwilioResult:
     recipient = normalize_whatsapp_to(to)
     if not recipient:
         return TwilioResult(False, "failed", "No valid WhatsApp recipient number was provided.")
     if not configured():
         return TwilioResult(False, "not_configured", "Twilio credentials are not configured; no WhatsApp was sent.")
+    sender = configured_from()
+    if not sender:
+        return TwilioResult(False, "failed", "TWILIO_WHATSAPP_FROM must be a WhatsApp sender such as whatsapp:+14155238886.")
     try:
         from twilio.rest import Client
 
         client = Client(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
         message = client.messages.create(
-            from_=os.environ["TWILIO_WHATSAPP_FROM"],
+            from_=sender,
             to=recipient,
             body=body,
         )
         return TwilioResult(True, "sent", "WhatsApp sent.", message.sid)
     except Exception as exc:
-        return TwilioResult(False, "failed", str(exc))
+        error = str(exc)
+        if "could not find a Channel with the specified From address" in error:
+            error = (
+                f"{error}\n\n"
+                f"Using From={sender}. In Twilio, this must be the WhatsApp Sandbox sender "
+                "whatsapp:+14155238886 or an approved WhatsApp sender connected to this account."
+            )
+        return TwilioResult(False, "failed", error)
 
 
 def checkin_url(token: str) -> str:

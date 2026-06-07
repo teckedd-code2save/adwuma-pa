@@ -1142,8 +1142,15 @@ def send_checkin_whatsapp(request_id):
 
 def twilio_status_markdown():
     if twilio_client.configured():
-        return "Twilio WhatsApp: **configured**"
-    return "Twilio WhatsApp: **not configured**. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_WHATSAPP_FROM`."
+        sender = twilio_client.configured_from()
+        return (
+            f"Twilio WhatsApp: **configured**. Sending from `{sender}`. "
+            "That sender must exist in this Twilio account as a WhatsApp Sandbox or approved WhatsApp channel."
+        )
+    return (
+        "Twilio WhatsApp: **not configured**. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, "
+        "and `TWILIO_WHATSAPP_FROM`. For Twilio Sandbox, use `whatsapp:+14155238886`."
+    )
 
 
 def run_silence_scan():
