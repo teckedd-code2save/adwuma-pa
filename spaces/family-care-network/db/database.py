@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timedelta, timezone
@@ -19,6 +20,31 @@ def now_iso() -> str:
 
 def new_id(prefix: str) -> str:
     return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
+def normalize_phone(value: str | None) -> str:
+    raw = (value or "").strip()
+    if not raw:
+        return ""
+    raw = raw.replace("whatsapp:", "").strip()
+    if raw.startswith("+"):
+        digits = "+" + re.sub(r"\D", "", raw)
+    elif raw.startswith("00"):
+        digits = "+" + re.sub(r"\D", "", raw[2:])
+    else:
+        clean = re.sub(r"\D", "", raw)
+        if clean.startswith("0") and len(clean) == 10:
+            digits = f"+233{clean[1:]}"
+        elif clean.startswith("233"):
+            digits = f"+{clean}"
+        else:
+            digits = f"+{clean}" if clean else ""
+    return digits
+
+
+def normalize_whatsapp(value: str | None) -> str:
+    phone = normalize_phone(value)
+    return f"whatsapp:{phone}" if phone else ""
 
 
 def connect() -> sqlite3.Connection:
@@ -161,6 +187,8 @@ def add_member(
 ) -> str:
     if family_role == "coordinator":
         is_coordinator = True
+    phone = normalize_phone(phone)
+    whatsapp = normalize_whatsapp(whatsapp or phone)
     member_id = new_id("member")
     token = f"{name.lower().replace(' ', '-')}-{uuid.uuid4().hex[:5]}"
     with connect() as conn:
@@ -191,6 +219,50 @@ def add_member(
             ),
         )
     return member_id
+
+
+def update_member(
+    member_id: str,
+    name: str,
+    phone: str,
+    whatsapp: str,
+    city: str,
+    region: str,
+    language: str,
+    call_enabled: bool = True,
+    family_role: str = "relative",
+    is_coordinator: bool = False,
+) -> None:
+    if family_role == "coordinator":
+        is_coordinator = True
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE members
+            SET name = ?,
+                phone = ?,
+                whatsapp = ?,
+                location_city = ?,
+                location_region = ?,
+                language = ?,
+                family_role = ?,
+                is_coordinator = ?,
+                call_enabled = ?
+            WHERE id = ?
+            """,
+            (
+                name,
+                normalize_phone(phone),
+                normalize_whatsapp(whatsapp or phone),
+                city,
+                region,
+                language,
+                family_role,
+                int(is_coordinator),
+                int(call_enabled),
+                member_id,
+            ),
+        )
 
 
 def update_member_role(member_id: str, family_role: str, is_coordinator: bool) -> None:
@@ -306,6 +378,17 @@ def update_escalation(member_id: str, reminder_minutes: int, amber_minutes: int,
             """,
             (reminder_minutes, amber_minutes, red_minutes, member_id),
         )
+
+
+def storage_status() -> dict[str, Any]:
+    with connect() as conn:
+        member_count = conn.execute("SELECT COUNT(*) AS n FROM members").fetchone()["n"]
+    return {
+        "db_path": str(DB_PATH),
+        "data_dir": str(DATA_DIR),
+        "persistent_storage": DATA_DIR == Path("/data"),
+        "member_count": member_count,
+    }
 
 
 def create_alert(member_id: str, alert_type: str, notes: str) -> str:

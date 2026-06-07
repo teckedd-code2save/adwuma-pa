@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import json
 
 import gradio as gr
@@ -410,6 +411,53 @@ select {
   color: #334155 !important;
   padding: 16px;
 }
+.ap-profile {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-left: 6px solid #047857;
+  border-radius: 8px;
+  color: #0f172a !important;
+  padding: 16px;
+}
+.ap-profile h3 {
+  color: #0f172a !important;
+  font-size: 22px;
+  font-weight: 900;
+  margin: 0 0 12px;
+}
+.ap-profile-grid {
+  display: grid;
+  gap: 8px 14px;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+.ap-profile-row {
+  color: #0f172a !important;
+  font-size: 14px;
+}
+.ap-profile-row strong,
+.ap-profile-section strong {
+  color: #0f172a !important;
+  font-weight: 900;
+}
+.ap-profile-section {
+  border-top: 1px solid #cbd5e1;
+  color: #0f172a !important;
+  margin-top: 14px;
+  padding-top: 12px;
+}
+.ap-profile-section ul {
+  margin: 8px 0 0 18px;
+}
+.ap-storage {
+  background: #f8fafc;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  color: #0f172a !important;
+  padding: 12px;
+}
+.ap-storage strong {
+  color: #0f172a !important;
+}
 """
 
 
@@ -447,6 +495,24 @@ def request_table_value():
 
 def outbound_table_value():
     return table_value(db.outbound_rows(), OUTBOUND_HEADERS)
+
+
+def storage_status_html():
+    status = db.storage_status()
+    persistence = "persistent /data storage detected" if status["persistent_storage"] else "ephemeral app filesystem"
+    warning = (
+        "Records should survive Space restarts."
+        if status["persistent_storage"]
+        else "Records can disappear when the Space rebuilds or restarts. Attach HF persistent storage or external DB before real use."
+    )
+    return f"""
+<div class="ap-storage">
+  <strong>Storage:</strong> {html.escape(persistence)}<br>
+  <strong>Members saved:</strong> {status['member_count']}<br>
+  <strong>Database:</strong> <code>{html.escape(status['db_path'])}</code><br>
+  {html.escape(warning)}
+</div>
+"""
 
 
 def active_requests_html(limit=8):
@@ -646,12 +712,16 @@ def open_loop_rows():
     )
 
 
-def member_profile_markdown(member_id):
+def esc(value):
+    return html.escape("" if value is None else str(value))
+
+
+def member_profile_html(member_id):
     if not member_id:
-        return "Choose a family member."
+        return '<div class="ap-empty">Choose a family member.</div>'
     member = db.one("SELECT * FROM members WHERE id = ?", (member_id,))
     if not member:
-        return "Member not found."
+        return '<div class="ap-empty">Member not found.</div>'
     contact_rows = db.rows(
         """
         SELECT c.name, c.whatsapp, c.location_city
@@ -667,9 +737,9 @@ def member_profile_markdown(member_id):
     affiliation_lines = []
     for row in affiliations[:8]:
         affiliation_lines.append(
-            f"- {row['Subject']} -> {row['Related']}: {row['Relationship']} ({row['Care role']}, priority {row['Priority']})"
+            f"<li>{esc(row['Subject'])} -> {esc(row['Related'])}: {esc(row['Relationship'])} ({esc(row['Care role'])}, priority {esc(row['Priority'])})</li>"
         )
-    affiliation_text = "\n".join(affiliation_lines) or "- None yet"
+    affiliation_text = "\n".join(affiliation_lines) or "<li>None yet</li>"
     pending = db.rows(
         """
         SELECT token, reason_code, status
@@ -680,23 +750,25 @@ def member_profile_markdown(member_id):
         """,
         (member_id,),
     )
-    pending_lines = "\n".join(f"- `/checkin/{row['token']}` — {row['reason_code']} ({row['status']})" for row in pending) or "- None"
+    pending_lines = "\n".join(
+        f"<li><code>/checkin/{esc(row['token'])}</code> - {esc(row['reason_code'])} ({esc(row['status'])})</li>" for row in pending
+    ) or "<li>None</li>"
     return f"""
-### {member['name']}
-
-Location: **{member.get('location_city') or 'Unknown'}, {member.get('location_region') or ''}**  
-Role: **{member.get('family_role') or 'relative'}**  
-Coordinator: **{'Yes' if member.get('is_coordinator') else 'No'}**  
-Language: **{member.get('language') or 'Unknown'}**  
-WhatsApp: **{member.get('whatsapp') or member.get('phone')}**  
-First-party contacts: **{contacts}**  
-Policy: reminder **{member.get('reminder_minutes')} min**, amber **{member.get('escalation_minutes_amber')} min**, red **{member.get('escalation_minutes_red')} min**
-
-Affiliations:
-{affiliation_text}
-
-Open request links:
-{pending_lines}
+<div class="ap-profile">
+  <h3>{esc(member['name'])}</h3>
+  <div class="ap-profile-grid">
+    <div class="ap-profile-row"><strong>Location</strong><br>{esc(member.get('location_city') or 'Unknown')}, {esc(member.get('location_region') or '')}</div>
+    <div class="ap-profile-row"><strong>Role</strong><br>{esc(member.get('family_role') or 'relative')}</div>
+    <div class="ap-profile-row"><strong>Coordinator</strong><br>{'Yes' if member.get('is_coordinator') else 'No'}</div>
+    <div class="ap-profile-row"><strong>Language</strong><br>{esc(member.get('language') or 'Unknown')}</div>
+    <div class="ap-profile-row"><strong>Phone</strong><br>{esc(member.get('phone') or '')}</div>
+    <div class="ap-profile-row"><strong>WhatsApp</strong><br>{esc(member.get('whatsapp') or member.get('phone') or '')}</div>
+    <div class="ap-profile-row"><strong>First-party contacts</strong><br>{esc(contacts)}</div>
+    <div class="ap-profile-row"><strong>Policy</strong><br>reminder {esc(member.get('reminder_minutes'))} min, amber {esc(member.get('escalation_minutes_amber'))} min, red {esc(member.get('escalation_minutes_red'))} min</div>
+  </div>
+  <div class="ap-profile-section"><strong>Affiliations</strong><ul>{affiliation_text}</ul></div>
+  <div class="ap-profile-section"><strong>Open request links</strong><ul>{pending_lines}</ul></div>
+</div>
 """
 
 
@@ -767,7 +839,7 @@ def member_affiliation_rows(member_id):
 
 def load_member_detail(member_id):
     return (
-        member_profile_markdown(member_id),
+        member_profile_html(member_id),
         member_checkin_rows(member_id),
         member_alert_rows(member_id),
         member_nudge_rows(member_id),
@@ -779,16 +851,69 @@ def member_choices():
     return [(f"{row['name']} - {row['location_city']}", row["id"]) for row in db.rows("SELECT * FROM members ORDER BY name")]
 
 
+def member_dropdown():
+    return gr.Dropdown(choices=member_choices())
+
+
 def add_member(name, phone, whatsapp, city, region, language, family_role, is_coordinator, call_enabled):
     if not name or not phone:
         raise gr.Error("Name and phone are required.")
     member_id = db.add_member(name, phone, whatsapp or phone, city, region, language, call_enabled, family_role, is_coordinator)
-    choices = gr.Dropdown(choices=member_choices())
+    choices = member_dropdown()
+    member = db.one("SELECT phone, whatsapp FROM members WHERE id = ?", (member_id,))
     return (
-        f"Saved {name}.",
+        f"Saved {name}. Phone: {member['phone']}. WhatsApp: {member['whatsapp']}.",
         member_registry_html(),
+        storage_status_html(),
         family_overview_html(),
         care_routes_html(),
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+    )
+
+
+def load_member_for_edit(member_id):
+    if not member_id:
+        raise gr.Error("Choose a member to edit.")
+    member = db.one("SELECT * FROM members WHERE id = ?", (member_id,))
+    if not member:
+        raise gr.Error("Member not found.")
+    return (
+        member["name"],
+        member["phone"],
+        member["whatsapp"],
+        member.get("location_city") or "",
+        member.get("location_region") or "Greater Accra",
+        member.get("language") or "twi",
+        member.get("family_role") or "relative",
+        bool(member.get("is_coordinator")),
+        bool(member.get("call_enabled")),
+    )
+
+
+def save_member_edits(member_id, name, phone, whatsapp, city, region, language, family_role, is_coordinator, call_enabled):
+    if not member_id:
+        raise gr.Error("Choose a member to edit.")
+    if not name or not phone:
+        raise gr.Error("Name and phone are required.")
+    db.update_member(member_id, name, phone, whatsapp or phone, city, region, language, call_enabled, family_role, is_coordinator)
+    choices = member_dropdown()
+    member = db.one("SELECT phone, whatsapp FROM members WHERE id = ?", (member_id,))
+    return (
+        f"Updated {name}. Phone: {member['phone']}. WhatsApp: {member['whatsapp']}.",
+        member_registry_html(),
+        storage_status_html(),
+        member_profile_html(member_id),
+        family_overview_html(),
+        care_routes_html(),
+        choices,
+        choices,
         choices,
         choices,
         choices,
@@ -818,7 +943,7 @@ def add_affiliation(subject_member_id, related_member_id, relationship, care_rol
     return (
         f"Saved affiliation {affiliation_id}.",
         member_affiliation_rows(subject_member_id),
-        member_profile_markdown(subject_member_id),
+        member_profile_html(subject_member_id),
         family_overview_html(),
         care_routes_html(),
     )
@@ -826,7 +951,7 @@ def add_affiliation(subject_member_id, related_member_id, relationship, care_rol
 
 def load_sample_data():
     db.seed_demo_data()
-    choices = gr.Dropdown(choices=member_choices())
+    choices = member_dropdown()
     return (
         "Sample data loaded.",
         status_cards_html(),
@@ -845,7 +970,7 @@ def load_sample_data():
 
 def clear_data():
     db.clear_all_data()
-    choices = gr.Dropdown(choices=member_choices())
+    choices = member_dropdown()
     return (
         "All members, check-ins, alerts, nudges, and calls cleared.",
         status_cards_html(),
@@ -854,6 +979,9 @@ def clear_data():
         care_routes_html(),
         alert_overview_html(),
         member_registry_html(),
+        storage_status_html(),
+        choices,
+        choices,
         choices,
         choices,
         choices,
@@ -1120,6 +1248,7 @@ def build_app():
                 scan_output = gr.Textbox(label="Silence scan actions", lines=5, interactive=False)
 
             with gr.Tab("Members"):
+                member_storage = gr.HTML(storage_status_html())
                 with gr.Accordion("Add family member", open=True):
                     with gr.Row():
                         new_name = gr.Textbox(label="Name")
@@ -1142,6 +1271,28 @@ def build_app():
                     gr.HTML('<div class="ap-section-title">Registered family members</div>')
                     member_registry = gr.HTML(member_registry_html())
 
+                with gr.Accordion("Edit family member", open=False):
+                    edit_member = gr.Dropdown(choices=member_choices(), label="Member to edit")
+                    load_edit_member = gr.Button("Load member")
+                    with gr.Row():
+                        edit_name = gr.Textbox(label="Name")
+                        edit_phone = gr.Textbox(label="Phone")
+                        edit_whatsapp = gr.Textbox(label="WhatsApp")
+                    with gr.Row():
+                        edit_city = gr.Textbox(label="City")
+                        edit_region = gr.Dropdown(choices=GHANA_REGIONS, value="Greater Accra", label="Region")
+                        edit_language = gr.Dropdown(
+                            choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
+                            value="twi",
+                            label="Preferred language",
+                        )
+                    with gr.Row():
+                        edit_role = gr.Dropdown(choices=ROLE_CHOICES, value="relative", label="Family role")
+                        edit_is_coordinator = gr.Checkbox(label="Can coordinate care", value=False)
+                        edit_call = gr.Checkbox(label="Voice call enabled", value=True)
+                    save_edit_member = gr.Button("Save member changes", variant="primary")
+                    edit_output = gr.Textbox(label="Edit result", interactive=False)
+
                 with gr.Accordion("Add affiliation", open=True):
                     gr.Markdown("Attach any number of family or care relationships. Coordinators are members too, so add yourself here and connect yourself to the people you coordinate.")
                     with gr.Row():
@@ -1161,7 +1312,7 @@ def build_app():
                 with gr.Accordion("Member detail and history", open=True):
                     detail_member = gr.Dropdown(choices=member_choices(), label="Family member")
                     load_detail = gr.Button("Load member detail", variant="primary")
-                    member_profile = gr.Markdown(member_profile_markdown(None))
+                    member_profile = gr.HTML(member_profile_html(None))
                     member_affiliations = gr.Dataframe(headers=AFFILIATION_HEADERS, value=[], label="Affiliations", interactive=False, wrap=True)
                     member_checkins = gr.Dataframe(headers=CHECKIN_HEADERS, value=[], label="Check-in history", interactive=False, wrap=True)
                     member_alerts = gr.Dataframe(headers=ALERT_HEADERS, value=[], label="Member alerts", interactive=False, wrap=True)
@@ -1327,6 +1478,42 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
         generate_tts_prompt.click(build_tts_prompt, inputs=[tts_member, tts_prompt_type, tts_language], outputs=[tts_text])
         synthesize_tts.click(synthesize_tts_prompt, inputs=[tts_text, tts_language], outputs=[tts_audio, tts_status])
         load_detail.click(load_member_detail, inputs=[detail_member], outputs=[member_profile, member_checkins, member_alerts, member_nudges, member_affiliations])
+        load_edit_member.click(
+            load_member_for_edit,
+            inputs=[edit_member],
+            outputs=[edit_name, edit_phone, edit_whatsapp, edit_city, edit_region, edit_language, edit_role, edit_is_coordinator, edit_call],
+        )
+        save_edit_member.click(
+            save_member_edits,
+            inputs=[
+                edit_member,
+                edit_name,
+                edit_phone,
+                edit_whatsapp,
+                edit_city,
+                edit_region,
+                edit_language,
+                edit_role,
+                edit_is_coordinator,
+                edit_call,
+            ],
+            outputs=[
+                edit_output,
+                member_registry,
+                member_storage,
+                member_profile,
+                family_table,
+                care_routes,
+                request_member_picker,
+                relay_member,
+                tts_member,
+                detail_member,
+                policy_member,
+                affiliation_subject,
+                affiliation_related,
+                edit_member,
+            ],
+        )
         affiliation_btn.click(
             add_affiliation,
             inputs=[
@@ -1347,14 +1534,17 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
             outputs=[
                 add_output,
                 member_registry,
+                member_storage,
                 family_table,
                 care_routes,
                 request_member_picker,
                 relay_member,
+                tts_member,
                 detail_member,
                 policy_member,
                 affiliation_subject,
                 affiliation_related,
+                edit_member,
             ],
         )
         clear_data_btn.click(
@@ -1367,12 +1557,15 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
                 care_routes,
                 alerts,
                 member_registry,
+                member_storage,
                 request_member_picker,
                 relay_member,
+                tts_member,
                 detail_member,
                 policy_member,
                 affiliation_subject,
                 affiliation_related,
+                edit_member,
             ],
         )
 
