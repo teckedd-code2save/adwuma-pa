@@ -1,0 +1,16 @@
+.DS_Store
+__pycache__/
+*.py[cod]
+*.sqlite3
+*.db
+.venv/
+.vscode/
+node_modules/
+.cache/
+.gradio/
+data/
+ui-*.png
+*.log
+.env
+.env.*
+!/.env.example

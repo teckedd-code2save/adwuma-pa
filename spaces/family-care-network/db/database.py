@@ -1,0 +1,609 @@
+from __future__ import annotations
+
+import json
+import sqlite3
+import uuid
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Any
+
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = Path("/data") if Path("/data").exists() else ROOT / "data"
+DB_PATH = DATA_DIR / "adwuma_pa.sqlite3"
+SCHEMA_PATH = ROOT / "db" / "schema.sql"
+
+
+def now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
+
+
+def new_id(prefix: str) -> str:
+    return f"{prefix}_{uuid.uuid4().hex[:12]}"
+
+
+def connect() -> sqlite3.Connection:
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+
+def init_db() -> None:
+    with connect() as conn:
+        conn.executescript(SCHEMA_PATH.read_text())
+        migrate_schema(conn)
+
+
+def migrate_schema(conn: sqlite3.Connection) -> None:
+    ensure_columns(
+        conn,
+        "members",
+        {
+            "reminder_minutes": "INTEGER DEFAULT 10080",
+            "escalation_minutes_amber": "INTEGER DEFAULT 14400",
+            "escalation_minutes_red": "INTEGER DEFAULT 20160",
+            "call_enabled": "INTEGER DEFAULT 1",
+            "family_role": "TEXT DEFAULT 'relative'",
+            "is_coordinator": "INTEGER DEFAULT 0",
+        },
+    )
+    ensure_columns(
+        conn,
+        "checkins",
+        {
+            "request_id": "TEXT REFERENCES checkup_requests(id)",
+            "translation": "TEXT",
+            "analysis_status": "TEXT DEFAULT 'needs_review'",
+            "analysis_json": "TEXT",
+            "processing_error": "TEXT",
+        },
+    )
+    ensure_columns(conn, "nudges", {"request_id": "TEXT REFERENCES checkup_requests(id)"})
+
+
+def ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
+    existing = {row["name"] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
+    for name, ddl in columns.items():
+        if name not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {name} {ddl}")
+
+
+def seed_demo_data() -> None:
+    with connect() as conn:
+        count = conn.execute("SELECT COUNT(*) AS n FROM members").fetchone()["n"]
+        if count:
+            return
+        members = [
+            ("elder_kwame", "Uncle Kwame", "+233000000001", "whatsapp:+233000000001", "Obuasi", "Ashanti", "twi", 1),
+            ("elder_esi", "Auntie Esi", "+233000000002", "whatsapp:+233000000002", "Cape Coast", "Central", "fat", 1),
+            ("elder_akua", "Auntie Akua", "+233000000003", "whatsapp:+233000000003", "Kumasi", "Ashanti", "twi", 1),
+            ("contact_ama", "Ama", "+233000000004", "whatsapp:+233000000004", "Obuasi", "Ashanti", "eng", 0),
+            ("contact_kojo", "Kojo", "+233000000005", "whatsapp:+233000000005", "Cape Coast", "Central", "eng", 0),
+        ]
+        for member in members:
+            conn.execute(
+                """
+                INSERT INTO members
+                (id, name, phone, whatsapp, location_city, location_region, language, call_enabled,
+                 checkin_url_token, reminder_minutes, escalation_minutes_amber, escalation_minutes_red, created_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (*member, member[0].replace("_", "-"), 10080, 14400, 20160, now_iso()),
+            )
+        conn.execute(
+            "INSERT INTO first_party_contacts (id, elder_id, contact_id, priority) VALUES (?, ?, ?, ?)",
+            (new_id("fpc"), "elder_kwame", "contact_ama", 1),
+        )
+        conn.execute(
+            "INSERT INTO first_party_contacts (id, elder_id, contact_id, priority) VALUES (?, ?, ?, ?)",
+            (new_id("fpc"), "elder_esi", "contact_kojo", 1),
+        )
+    add_checkin(
+        "elder_kwame",
+        "self",
+        "Me ho ye, nanso me nantew kakra nnansa yi.",
+        "Uncle says he is okay but has walked less over the last few days.",
+        4,
+        ["reduced_mobility"],
+        "twi",
+    )
+    add_checkin(
+        "elder_esi",
+        "self",
+        "I feel fine. Kojo came by yesterday.",
+        "Auntie Esi reports feeling fine and had a recent visit.",
+        1,
+        [],
+        "eng",
+    )
+
+
+def clear_all_data() -> None:
+    with connect() as conn:
+        for table in [
+            "inbound_messages",
+            "model_runs",
+            "nudges",
+            "calls",
+            "checkins",
+            "checkup_requests",
+            "alerts",
+            "member_affiliations",
+            "first_party_contacts",
+            "members",
+        ]:
+            conn.execute(f"DELETE FROM {table}")
+
+
+def rows(query: str, params: tuple[Any, ...] = ()) -> list[dict[str, Any]]:
+    with connect() as conn:
+        return [dict(row) for row in conn.execute(query, params).fetchall()]
+
+
+def one(query: str, params: tuple[Any, ...] = ()) -> dict[str, Any] | None:
+    with connect() as conn:
+        row = conn.execute(query, params).fetchone()
+        return dict(row) if row else None
+
+
+def add_member(
+    name: str,
+    phone: str,
+    whatsapp: str,
+    city: str,
+    region: str,
+    language: str,
+    call_enabled: bool = True,
+    family_role: str = "relative",
+    is_coordinator: bool = False,
+) -> str:
+    if family_role == "coordinator":
+        is_coordinator = True
+    member_id = new_id("member")
+    token = f"{name.lower().replace(' ', '-')}-{uuid.uuid4().hex[:5]}"
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO members
+            (id, name, phone, whatsapp, location_city, location_region, language, family_role,
+             is_coordinator, checkin_url_token, reminder_minutes, escalation_minutes_amber,
+             escalation_minutes_red, call_enabled, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                member_id,
+                name,
+                phone,
+                whatsapp,
+                city,
+                region,
+                language,
+                family_role,
+                int(is_coordinator),
+                token,
+                10080,
+                14400,
+                20160,
+                int(call_enabled),
+                now_iso(),
+            ),
+        )
+    return member_id
+
+
+def update_member_role(member_id: str, family_role: str, is_coordinator: bool) -> None:
+    with connect() as conn:
+        conn.execute(
+            "UPDATE members SET family_role = ?, is_coordinator = ? WHERE id = ?",
+            (family_role, int(is_coordinator), member_id),
+        )
+
+
+def add_affiliation(
+    subject_member_id: str,
+    related_member_id: str,
+    relationship: str,
+    care_role: str,
+    priority: int = 5,
+    can_coordinate: bool = False,
+    notes: str = "",
+) -> str:
+    if subject_member_id == related_member_id:
+        raise ValueError("A member cannot be affiliated with themselves.")
+    affiliation_id = new_id("affil")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT OR REPLACE INTO member_affiliations
+            (id, subject_member_id, related_member_id, relationship, care_role, priority,
+             can_coordinate, notes, created_at)
+            VALUES (
+              COALESCE((SELECT id FROM member_affiliations
+                        WHERE subject_member_id = ? AND related_member_id = ? AND relationship = ?), ?),
+              ?, ?, ?, ?, ?, ?, ?, ?
+            )
+            """,
+            (
+                subject_member_id,
+                related_member_id,
+                relationship,
+                affiliation_id,
+                subject_member_id,
+                related_member_id,
+                relationship,
+                care_role,
+                max(1, int(priority or 5)),
+                int(can_coordinate),
+                notes,
+                now_iso(),
+            ),
+        )
+        if care_role in {"first_party_contact", "nearby_relative", "emergency_contact"}:
+            existing = conn.execute(
+                """
+                SELECT id FROM first_party_contacts
+                WHERE elder_id = ? AND contact_id = ?
+                LIMIT 1
+                """,
+                (subject_member_id, related_member_id),
+            ).fetchone()
+            if existing:
+                conn.execute(
+                    "UPDATE first_party_contacts SET priority = ? WHERE id = ?",
+                    (max(1, int(priority or 5)), existing["id"]),
+                )
+            else:
+                conn.execute(
+                    """
+                    INSERT INTO first_party_contacts (id, elder_id, contact_id, priority)
+                    VALUES (?, ?, ?, ?)
+                    """,
+                    (new_id("fpc"), subject_member_id, related_member_id, max(1, int(priority or 5))),
+                )
+    return affiliation_id
+
+
+def affiliation_rows(member_id: str | None = None) -> list[dict[str, Any]]:
+    where = ""
+    params: tuple[Any, ...] = ()
+    if member_id:
+        where = "WHERE a.subject_member_id = ? OR a.related_member_id = ?"
+        params = (member_id, member_id)
+    return rows(
+        f"""
+        SELECT a.id AS Affiliation,
+               s.name AS Subject,
+               r.name AS Related,
+               a.relationship AS Relationship,
+               a.care_role AS "Care role",
+               a.priority AS Priority,
+               CASE WHEN a.can_coordinate = 1 THEN 'Yes' ELSE 'No' END AS Coordinator,
+               COALESCE(a.notes, '') AS Notes
+        FROM member_affiliations a
+        JOIN members s ON s.id = a.subject_member_id
+        JOIN members r ON r.id = a.related_member_id
+        {where}
+        ORDER BY a.priority ASC, s.name ASC, r.name ASC
+        """,
+        params,
+    )
+
+
+def update_escalation(member_id: str, reminder_minutes: int, amber_minutes: int, red_minutes: int) -> None:
+    reminder_minutes = max(1, int(reminder_minutes))
+    amber_minutes = max(1, int(amber_minutes))
+    if amber_minutes <= reminder_minutes:
+        amber_minutes = reminder_minutes + 1
+    red_minutes = max(amber_minutes + 1, int(red_minutes))
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE members
+            SET reminder_minutes = ?, escalation_minutes_amber = ?, escalation_minutes_red = ?
+            WHERE id = ?
+            """,
+            (reminder_minutes, amber_minutes, red_minutes, member_id),
+        )
+
+
+def create_alert(member_id: str, alert_type: str, notes: str) -> str:
+    existing = one(
+        """
+        SELECT id FROM alerts
+        WHERE member_id = ? AND alert_type = ? AND resolved = 0
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (member_id, alert_type),
+    )
+    if existing:
+        return existing["id"]
+    alert_id = new_id("alert")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO alerts (id, member_id, alert_type, created_at, notes)
+            VALUES (?, ?, ?, ?, ?)
+            """,
+            (alert_id, member_id, alert_type, now_iso(), notes),
+        )
+    return alert_id
+
+
+def add_nudge(elder_id: str, contact_id: str | None) -> str:
+    existing = one(
+        """
+        SELECT id FROM nudges
+        WHERE elder_id = ? AND COALESCE(contact_id, '') = COALESCE(?, '') AND responded_at IS NULL
+        ORDER BY sent_at DESC
+        LIMIT 1
+        """,
+        (elder_id, contact_id),
+    )
+    if existing:
+        return existing["id"]
+    nudge_id = new_id("nudge")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO nudges (id, elder_id, contact_id, sent_at)
+            VALUES (?, ?, ?, ?)
+            """,
+            (nudge_id, elder_id, contact_id, now_iso()),
+        )
+    return nudge_id
+
+
+def age_latest_checkin(member_id: str, minutes_ago: int) -> None:
+    checkin = one(
+        "SELECT id FROM checkins WHERE member_id = ? ORDER BY submitted_at DESC LIMIT 1",
+        (member_id,),
+    )
+    if not checkin:
+        return
+    from datetime import timedelta
+
+    aged_at = (datetime.now(timezone.utc) - timedelta(minutes=max(0, int(minutes_ago)))).isoformat(timespec="seconds")
+    with connect() as conn:
+        conn.execute("UPDATE checkins SET submitted_at = ? WHERE id = ?", (aged_at, checkin["id"]))
+
+
+def add_checkin(
+    member_id: str,
+    source: str,
+    transcript: str,
+    summary: str,
+    concern_level: int | None,
+    flags: list[str],
+    language_detected: str,
+    input_type: str = "text",
+    raw_input: str | None = None,
+    asr_model_used: str | None = None,
+    asr_confidence: float | None = None,
+    request_id: str | None = None,
+    translation: str | None = None,
+    analysis_status: str = "needs_review",
+    analysis_json: dict[str, Any] | None = None,
+    processing_error: str | None = None,
+) -> str:
+    checkin_id = new_id("checkin")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO checkins
+            (id, member_id, request_id, submitted_at, input_type, raw_input, transcript, translation,
+             analysis_status, analysis_json, processing_error, asr_model_used, asr_confidence,
+             summary, concern_level, flags, language_detected, source)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                checkin_id,
+                member_id,
+                request_id,
+                now_iso(),
+                input_type,
+                raw_input or transcript,
+                transcript,
+                translation,
+                analysis_status,
+                json.dumps(analysis_json or {}),
+                processing_error,
+                asr_model_used,
+                asr_confidence,
+                summary,
+                concern_level,
+                json.dumps(flags),
+                language_detected,
+                source,
+            ),
+        )
+        if request_id:
+            status = "complete" if analysis_status == "complete" else "needs_review"
+            conn.execute(
+                "UPDATE checkup_requests SET status = ?, completed_at = ? WHERE id = ?",
+                (status, now_iso(), request_id),
+            )
+    if concern_level is not None:
+        maybe_create_concern_alert(member_id, concern_level)
+    elif analysis_status == "needs_review":
+        create_alert(member_id, "needs_review", processing_error or "Check-in requires human review.")
+    return checkin_id
+
+
+def maybe_create_concern_alert(member_id: str, concern_level: int) -> None:
+    if concern_level < 4:
+        return
+    alert_type = "red_concern" if concern_level >= 7 else "amber_concern"
+    create_alert(member_id, alert_type, f"Concern score {concern_level} from latest check-in.")
+
+
+def create_checkup_request(
+    member_id: str,
+    reason_code: str,
+    reason_detail: str,
+    request_type: str = "elder_checkin",
+    channel: str = "web",
+    requester: str = "Adwuma Pa autopilot",
+    priority: str = "routine",
+    related_alert_id: str | None = None,
+    related_nudge_id: str | None = None,
+    expires_minutes: int | None = 4320,
+) -> str:
+    existing = one(
+        """
+        SELECT id FROM checkup_requests
+        WHERE member_id = ? AND reason_code = ? AND request_type = ? AND status IN ('pending', 'sent', 'processing', 'needs_review')
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (member_id, reason_code, request_type),
+    )
+    if existing:
+        return existing["id"]
+    request_id = new_id("request")
+    token = f"{request_id[8:]}-{uuid.uuid4().hex[:8]}"
+    expires_at = None
+    if expires_minutes:
+        expires_at = (datetime.now(timezone.utc) + timedelta(minutes=int(expires_minutes))).isoformat(timespec="seconds")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO checkup_requests
+            (id, token, member_id, requester, request_type, reason_code, reason_detail, channel,
+             status, priority, created_at, expires_at, related_alert_id, related_nudge_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                request_id,
+                token,
+                member_id,
+                requester,
+                request_type,
+                reason_code,
+                reason_detail,
+                channel,
+                "pending",
+                priority,
+                now_iso(),
+                expires_at,
+                related_alert_id,
+                related_nudge_id,
+            ),
+        )
+    return request_id
+
+
+def get_request_by_token(token: str) -> dict[str, Any] | None:
+    return one(
+        """
+        SELECT r.*, m.name AS member_name, m.language, m.location_city, m.location_region,
+               m.whatsapp, m.phone
+        FROM checkup_requests r
+        JOIN members m ON m.id = r.member_id
+        WHERE r.token = ?
+        """,
+        (token,),
+    )
+
+
+def request_rows(limit: int = 30) -> list[dict[str, Any]]:
+    return rows(
+        """
+        SELECT r.id AS Request, r.token AS Token, m.name AS Member, r.request_type AS Type,
+               r.reason_code AS Reason, r.priority AS Priority, r.status AS Status,
+               r.created_at AS Created, COALESCE(r.completed_at, '') AS Completed
+        FROM checkup_requests r
+        JOIN members m ON m.id = r.member_id
+        ORDER BY
+          CASE r.status
+            WHEN 'pending' THEN 0
+            WHEN 'sent' THEN 1
+            WHEN 'needs_review' THEN 2
+            WHEN 'processing' THEN 3
+            ELSE 4
+          END,
+          r.created_at DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+
+
+def pending_request_for_member(member_id: str, reason_code: str) -> dict[str, Any] | None:
+    return one(
+        """
+        SELECT * FROM checkup_requests
+        WHERE member_id = ? AND reason_code = ? AND status IN ('pending', 'sent', 'processing', 'needs_review')
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (member_id, reason_code),
+    )
+
+
+def record_model_run(
+    checkin_id: str | None,
+    run_type: str,
+    model_id: str | None,
+    status: str,
+    input_summary: str = "",
+    output_json: dict[str, Any] | None = None,
+    error: str | None = None,
+    latency_ms: int | None = None,
+) -> str:
+    run_id = new_id("run")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO model_runs
+            (id, checkin_id, run_type, model_id, status, latency_ms, input_summary, output_json, error, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                checkin_id,
+                run_type,
+                model_id,
+                status,
+                latency_ms,
+                input_summary,
+                json.dumps(output_json or {}),
+                error,
+                now_iso(),
+            ),
+        )
+    return run_id
+
+
+def add_inbound_message(
+    sender: str,
+    body: str,
+    channel: str = "whatsapp",
+    matched_member_id: str | None = None,
+    matched_contact_id: str | None = None,
+    status: str = "unmatched",
+) -> str:
+    message_id = new_id("inbound")
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO inbound_messages
+            (id, sender, channel, body, matched_member_id, matched_contact_id, status, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (message_id, sender, channel, body, matched_member_id, matched_contact_id, status, now_iso()),
+        )
+    return message_id
+
+
+def resolve_alert(alert_id: str, resolved_by: str, notes: str) -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE alerts
+            SET resolved = 1, resolved_at = ?, resolved_by = ?, notes = COALESCE(notes, '') || CHAR(10) || ?
+            WHERE id = ?
+            """,
+            (now_iso(), resolved_by, notes, alert_id),
+        )
