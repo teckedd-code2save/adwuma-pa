@@ -129,3 +129,58 @@ def record_inbound(sender: str, body: str, channel: str = "whatsapp") -> str:
     )
     status = "matched" if member else "unmatched"
     return db.add_inbound_message(sender, body, channel, matched_member_id=member["id"] if member else None, status=status)
+
+
+def receive_whatsapp_reply(sender: str, body: str) -> dict:
+    normalized_sender = normalize_whatsapp_to(sender)
+    normalized_phone = normalized_sender.replace("whatsapp:", "")
+    member = db.one(
+        """
+        SELECT * FROM members
+        WHERE whatsapp = ? OR phone = ? OR whatsapp = ? OR phone = ?
+        LIMIT 1
+        """,
+        (sender, sender, normalized_sender, normalized_phone),
+    )
+    message_id = db.add_inbound_message(
+        sender=normalized_sender or sender,
+        body=body,
+        channel="whatsapp",
+        matched_member_id=member["id"] if member else None,
+        status="matched" if member else "unmatched",
+    )
+    if not member:
+        return {"ok": True, "message_id": message_id, "status": "unmatched", "detail": "No member matched this sender."}
+
+    request = db.one(
+        """
+        SELECT token
+        FROM checkup_requests
+        WHERE member_id = ?
+          AND status IN ('pending', 'sent', 'processing')
+          AND completed_at IS NULL
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (member["id"],),
+    )
+    if not request:
+        return {"ok": True, "message_id": message_id, "status": "matched_no_open_request", "member_id": member["id"]}
+
+    from services import pipeline
+
+    result = pipeline.submit_request_response(
+        token=request["token"],
+        text=body,
+        language=member.get("language") or "twi",
+        input_type="text",
+        source="self",
+    )
+    return {
+        "ok": True,
+        "message_id": message_id,
+        "status": "processed",
+        "member_id": member["id"],
+        "request_token": request["token"],
+        "pipeline": result,
+    }

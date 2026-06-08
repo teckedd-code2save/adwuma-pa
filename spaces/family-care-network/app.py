@@ -2,7 +2,10 @@ from __future__ import annotations
 
 import html
 import json
+import os
+from urllib.parse import parse_qs
 
+from fastapi import FastAPI, Request, Response
 import gradio as gr
 
 from config.models import ASR_CONFIG, LLM_CONFIG, TRANSLATION_CONFIG, TTS_CONFIG, total_parameter_budget_b
@@ -1153,6 +1156,25 @@ def twilio_status_markdown():
     )
 
 
+def install_webhook_routes(server):
+    @server.get("/twilio/health")
+    async def twilio_health():
+        return {"ok": True, "service": "adwuma-pa-twilio"}
+
+    @server.post("/twilio/whatsapp")
+    async def twilio_whatsapp(request: Request):
+        raw_body = (await request.body()).decode("utf-8")
+        payload = {key: values[0] if values else "" for key, values in parse_qs(raw_body).items()}
+        sender = payload.get("From", "")
+        message_body = payload.get("Body", "")
+        if sender and message_body:
+            twilio_client.receive_whatsapp_reply(sender, message_body)
+        xml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
+        return Response(content=xml, media_type="application/xml")
+
+    return server
+
+
 def run_silence_scan():
     actions = scan_silence()
     return "\n".join(actions), status_cards_html(), active_requests_html(), family_overview_html(), care_routes_html(), alert_overview_html()
@@ -1579,5 +1601,16 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
     return demo
 
 
+def build_server_app():
+    server = install_webhook_routes(FastAPI())
+    return gr.mount_gradio_app(server, build_app(), path="/", css=CUSTOM_CSS, theme=APP_THEME)
+
+
+app = build_server_app()
+demo = app
+
+
 if __name__ == "__main__":
-    build_app().launch(css=CUSTOM_CSS, theme=APP_THEME)
+    import uvicorn
+
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "7860")))
