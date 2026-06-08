@@ -13,6 +13,8 @@ from db import database as db
 from services.relay import dashboard_rows, scan_silence, simulate_nudge
 from services import modal_client, pipeline, twilio_client
 
+os.environ.setdefault("GRADIO_SSR_MODE", "False")
+
 FAMILY_HEADERS = [
     "Name",
     "City",
@@ -1603,7 +1605,7 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
 
 def build_server_app():
     server = install_webhook_routes(FastAPI())
-    return gr.mount_gradio_app(server, build_app(), path="/", css=CUSTOM_CSS, theme=APP_THEME)
+    return gr.mount_gradio_app(server, build_app(), path="/", css=CUSTOM_CSS, theme=APP_THEME, ssr_mode=False)
 
 
 app = build_server_app()
@@ -1613,5 +1615,5 @@ demo = app
 if __name__ == "__main__":
     import uvicorn
 
-    server_port = 7861 if os.getenv("SPACE_ID") else int(os.getenv("PORT", "7860"))
+    server_port = int(os.getenv("PORT", "7860"))
     uvicorn.run(app, host="0.0.0.0", port=server_port)
