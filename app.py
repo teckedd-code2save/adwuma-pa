@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import html
 import json
-import os
 from urllib.parse import parse_qs
 
 from fastapi import FastAPI, Request, Response
@@ -1608,9 +1607,3 @@ def build_server_app():
 
 app = build_server_app()
 demo = app
-
-
-if __name__ == "__main__":
-    import uvicorn
-
-    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "7860")))
