@@ -107,7 +107,12 @@ def main() -> int:
 def print_response(label: str, response: requests.Response) -> None:
     print(f"## {label}: HTTP {response.status_code}")
     try:
-        print(json.dumps(response.json(), indent=2, ensure_ascii=False))
+        data = response.json()
+        if isinstance(data, dict) and isinstance(data.get("audio_wav_base64"), str):
+            data = dict(data)
+            audio = data["audio_wav_base64"]
+            data["audio_wav_base64"] = f"<{len(audio)} base64 chars>"
+        print(json.dumps(data, indent=2, ensure_ascii=False))
     except ValueError:
         print(response.text[:1000])
 

@@ -138,6 +138,16 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 - No ASR, TTS, or cron endpoints were tested in this session.
 - App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
 
+2026-06-09 TTS validation:
+
+- Redeployed `adwuma-pa-inference`.
+- API base URL: `https://createdliving1000--api.modal.run`.
+- `/speak` returned HTTP 200 for `Me pe se me hwe wo ho.`
+- TTS model: `facebook/mms-tts-aka`.
+- Output audio: WAV payload, 16 kHz, 73,104 base64 characters.
+- No ASR or cron endpoints were tested in this session.
+- App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
+
 ## Current Secret Checklist
 
 HF Space:

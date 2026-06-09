@@ -23,7 +23,7 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 8. [x] Modal client stubs for ASR, translation, Qwen analysis, and TTS.
 9. [x] Local autopilot scan creates real queued requests.
 10. [x] Validate Modal translation endpoint with one real Twi phrase.
-11. [ ] Validate Modal ASR/TTS endpoints only when ready to spend credits.
+11. [ ] Validate Modal ASR endpoint with one real audio sample.
 
 ## Phase 1: ASR Evaluation
 
@@ -89,6 +89,7 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 - [ ] Add call records table UI.
 - [ ] Add Twilio outbound call stub.
 - [x] Add MMS TTS greeting/close prompt generation through Modal boundary.
+- [x] Run one Modal TTS test with MMS Akan voice.
 - [ ] Add call transcript ingestion path.
 - [ ] Keep this as a stretch feature if time gets tight.
 
