@@ -67,9 +67,13 @@ Suggested low-cost checks:
 ```bash
 python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --health
 python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --translate "Me ho ye"
+python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --analyze-sample
+python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --transcribe-audio /path/to/short-real-akan.wav --language twi
+python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --speak "Me pe se me hwe wo ho." --language twi
 ```
 
 Do not run ASR/Qwen/TTS repeatedly during UI iteration. Those endpoints are GPU-backed.
+Use a real short elder-style audio sample for ASR; synthetic or silent audio is not a useful validation.
 
 ## Cron
 
@@ -118,6 +122,20 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 - Translation output: `I am well, I have had food. Thank you.`
 - Translation model: `ninte/twi-en-nllb-v2`.
 - No ASR, Qwen, TTS, or cron endpoints were tested in this session.
+- App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
+
+2026-06-09 Qwen validation:
+
+- Redeployed `adwuma-pa-inference`.
+- API base URL: `https://createdliving1000--api.modal.run`.
+- `/health` returned HTTP 200.
+- `/analyze` returned HTTP 200 for a translated routine Twi check-in.
+- Qwen model: `Qwen/Qwen2.5-7B-Instruct`.
+- Strict JSON result included `summary`, `concern_level`, `flags`, `sentiment`, `evidence`, `recommended_action`, and `confidence`.
+- Result summary: `The elder reported being well and having eaten.`
+- Result concern level: `0`.
+- Result recommended action: `normal`.
+- No ASR, TTS, or cron endpoints were tested in this session.
 - App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
 
 ## Current Secret Checklist

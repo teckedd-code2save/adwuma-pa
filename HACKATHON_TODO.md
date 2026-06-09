@@ -22,8 +22,8 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 7. [x] Tokenized checkup request workflow.
 8. [x] Modal client stubs for ASR, translation, Qwen analysis, and TTS.
 9. [x] Local autopilot scan creates real queued requests.
-10. [ ] Validate Modal translation endpoint with one real Twi phrase.
-11. [ ] Validate Modal ASR/Qwen/TTS endpoints only when ready to spend credits.
+10. [x] Validate Modal translation endpoint with one real Twi phrase.
+11. [ ] Validate Modal ASR/TTS endpoints only when ready to spend credits.
 
 ## Phase 1: ASR Evaluation
 
@@ -62,8 +62,8 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 - [x] Store transcript, translation, model status, and review error when inference is unavailable.
 - [x] Keep text check-in as reliable fallback.
 - [ ] Run one Modal ASR test with real audio.
-- [ ] Run one Modal translation test with real Twi/Fante.
-- [ ] Run one Modal Qwen test after translation succeeds.
+- [x] Run one Modal translation test with real Twi/Fante.
+- [x] Run one Modal Qwen test after translation succeeds.
 
 ## Phase 4: Real Relay Workflow
 
