@@ -514,6 +514,7 @@ def storage_status_html():
 <div class="ap-storage">
   <strong>Storage:</strong> {html.escape(persistence)}<br>
   <strong>Members saved:</strong> {status['member_count']}<br>
+  <strong>Check-ins queued:</strong> {status['request_count']}<br>
   <strong>Database:</strong> <code>{html.escape(status['db_path'])}</code><br>
   {html.escape(warning)}
 </div>
@@ -1163,6 +1164,10 @@ def install_webhook_routes(server):
     async def twilio_health():
         return {"ok": True, "service": "adwuma-pa-twilio"}
 
+    @server.get("/debug/storage")
+    async def debug_storage():
+        return db.storage_status()
+
     @server.post("/twilio/whatsapp")
     async def twilio_whatsapp(request: Request):
         raw_body = (await request.body()).decode("utf-8")
@@ -1173,6 +1178,18 @@ def install_webhook_routes(server):
             twilio_client.receive_whatsapp_reply(sender, message_body)
         xml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
         return Response(content=xml, media_type="application/xml")
+
+    @server.post("/twilio/status")
+    async def twilio_status(request: Request):
+        raw_body = (await request.body()).decode("utf-8")
+        payload = {key: values[0] if values else "" for key, values in parse_qs(raw_body).items()}
+        twilio_client.record_status_callback(
+            payload.get("MessageSid", ""),
+            payload.get("MessageStatus", ""),
+            payload.get("ErrorCode", ""),
+            payload.get("ErrorMessage", ""),
+        )
+        return {"ok": True}
 
     return server
 

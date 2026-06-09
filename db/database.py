@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import uuid
@@ -9,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA_DIR = Path("/data") if Path("/data").exists() else ROOT / "data"
+DATA_DIR = Path(os.getenv("ADWUMA_DATA_DIR", "/data" if os.getenv("SPACE_ID") else str(ROOT / "data")))
 DB_PATH = DATA_DIR / "adwuma_pa.sqlite3"
 SCHEMA_PATH = ROOT / "db" / "schema.sql"
 
@@ -383,11 +384,17 @@ def update_escalation(member_id: str, reminder_minutes: int, amber_minutes: int,
 def storage_status() -> dict[str, Any]:
     with connect() as conn:
         member_count = conn.execute("SELECT COUNT(*) AS n FROM members").fetchone()["n"]
+        request_count = conn.execute("SELECT COUNT(*) AS n FROM checkup_requests").fetchone()["n"]
+        outbound_count = conn.execute("SELECT COUNT(*) AS n FROM outbound_messages").fetchone()["n"]
     return {
         "db_path": str(DB_PATH),
         "data_dir": str(DATA_DIR),
+        "data_dir_exists": DATA_DIR.exists(),
+        "db_exists": DB_PATH.exists(),
         "persistent_storage": DATA_DIR == Path("/data"),
         "member_count": member_count,
+        "request_count": request_count,
+        "outbound_count": outbound_count,
     }
 
 
@@ -704,6 +711,21 @@ def add_outbound_message(
         if request_id and status in {"sent", "queued"}:
             conn.execute("UPDATE checkup_requests SET status = 'sent' WHERE id = ?", (request_id,))
     return message_id
+
+
+def update_outbound_status(provider_sid: str, status: str, error: str | None = None) -> None:
+    if not provider_sid:
+        return
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE outbound_messages
+            SET status = ?,
+                error = COALESCE(?, error)
+            WHERE provider_sid = ?
+            """,
+            (status, error, provider_sid),
+        )
 
 
 def outbound_rows(limit: int = 20) -> list[dict[str, Any]]:

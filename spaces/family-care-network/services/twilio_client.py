@@ -45,6 +45,13 @@ def configured_from() -> str:
     return normalize_whatsapp_to(os.getenv("TWILIO_WHATSAPP_FROM"))
 
 
+def public_url(path: str) -> str | None:
+    base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    if not base_url:
+        return None
+    return f"{base_url}{path}"
+
+
 def send_whatsapp(to: str, body: str) -> TwilioResult:
     recipient = normalize_whatsapp_to(to)
     if not recipient:
@@ -58,11 +65,11 @@ def send_whatsapp(to: str, body: str) -> TwilioResult:
         from twilio.rest import Client
 
         client = Client(os.environ["TWILIO_ACCOUNT_SID"], os.environ["TWILIO_AUTH_TOKEN"])
-        message = client.messages.create(
-            from_=sender,
-            to=recipient,
-            body=body,
-        )
+        kwargs = {"from_": sender, "to": recipient, "body": body}
+        status_callback = public_url("/twilio/status")
+        if status_callback:
+            kwargs["status_callback"] = status_callback
+        message = client.messages.create(**kwargs)
         return TwilioResult(True, "sent", "WhatsApp sent.", message.sid)
     except Exception as exc:
         error = str(exc)
@@ -184,3 +191,11 @@ def receive_whatsapp_reply(sender: str, body: str) -> dict:
         "request_token": request["token"],
         "pipeline": result,
     }
+
+
+def record_status_callback(message_sid: str, message_status: str, error_code: str = "", error_message: str = "") -> dict:
+    if not message_sid:
+        return {"ok": False, "message": "No MessageSid supplied."}
+    error = " ".join(part for part in [error_code, error_message] if part).strip() or None
+    db.update_outbound_status(message_sid, message_status or "status_callback", error)
+    return {"ok": True, "sid": message_sid, "status": message_status, "error": error}
