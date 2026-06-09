@@ -21,6 +21,7 @@ This project was implemented with OpenAI Codex as the coding agent from the prod
 15. Validated Modal Qwen structured analysis with `Qwen/Qwen2.5-7B-Instruct` returning strict concern JSON.
 16. Validated Modal Akan TTS with `facebook/mms-tts-aka`, then stopped Modal with zero active tasks.
 17. Fixed inbound WhatsApp routing so a relative's reply can close an elder field-report request and mark the nudge responded.
+18. Reworked the Gradio UI into a recorder-friendly flow with Overview, Family Setup, Care Loop, and Build Notes tabs.
 
 ## Codex Role
 

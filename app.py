@@ -180,6 +180,11 @@ button.primary {
 button {
   font-weight: 700 !important;
 }
+button:not([role="tab"]):not(.primary) {
+  background: #ffffff !important;
+  border: 1px solid #64748b !important;
+  color: #0f172a !important;
+}
 .ap-note {
   color: var(--ap-muted);
   font-size: 13px;
@@ -463,6 +468,196 @@ select {
 .ap-storage strong {
   color: #0f172a !important;
 }
+.gradio-container {
+  max-width: 1160px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 18px 18px 32px !important;
+}
+.tabs {
+  gap: 14px !important;
+}
+.tabitem {
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+}
+.block,
+.form {
+  box-shadow: none !important;
+}
+.ap-header {
+  align-items: flex-start;
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+}
+.ap-title {
+  letter-spacing: 0;
+}
+.ap-subtitle {
+  font-size: 16px;
+  line-height: 1.5;
+}
+.ap-header-side {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  color: #0f172a !important;
+  min-width: 260px;
+  padding: 12px 14px;
+}
+.ap-header-side strong,
+.ap-header-side span {
+  color: #0f172a !important;
+}
+.ap-header-side strong {
+  display: block;
+  font-size: 12px;
+  letter-spacing: .04em;
+  margin-bottom: 4px;
+  text-transform: uppercase;
+}
+.ap-hero-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: 1.25fr .75fr;
+  margin: 8px 0 14px;
+}
+.ap-story {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  padding: 16px;
+}
+.ap-story h2 {
+  color: #0f172a !important;
+  font-size: 22px;
+  line-height: 1.2;
+  margin: 0 0 10px;
+}
+.ap-story p {
+  color: #334155 !important;
+  font-size: 14px;
+  line-height: 1.5;
+  margin: 0;
+}
+.ap-flow {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 14px;
+}
+.ap-flow-step {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  padding: 10px;
+}
+.ap-flow-step strong {
+  color: #0f172a !important;
+  display: block;
+  font-size: 13px;
+  margin-bottom: 3px;
+}
+.ap-flow-step span {
+  color: #475569 !important;
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.ap-recorder {
+  background: #0f172a;
+  border: 1px solid #1e293b;
+  border-radius: 8px;
+  color: #f8fafc !important;
+  padding: 16px;
+}
+.ap-recorder strong,
+.ap-recorder li,
+.ap-recorder p {
+  color: #f8fafc !important;
+}
+.ap-recorder ul {
+  margin: 10px 0 0 18px;
+  padding: 0;
+}
+.ap-recorder li {
+  font-size: 13px;
+  line-height: 1.5;
+}
+.ap-status-card,
+.ap-family-card,
+.ap-item,
+.ap-profile,
+.ap-story,
+.ap-storage {
+  box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
+}
+.ap-status-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.ap-section-title {
+  align-items: center;
+  display: flex;
+  gap: 8px;
+  letter-spacing: 0;
+}
+.ap-section-title::before {
+  background: #047857;
+  border-radius: 999px;
+  content: "";
+  display: inline-block;
+  height: 9px;
+  width: 9px;
+}
+.ap-family-grid {
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+.ap-family-card,
+.ap-item {
+  min-height: 96px;
+}
+.ap-family-foot,
+.ap-item-note,
+.ap-item-meta {
+  line-height: 1.4;
+}
+details,
+.accordion {
+  border-color: #94a3b8 !important;
+}
+details > summary {
+  background: #ffffff !important;
+  border: 1px solid #64748b !important;
+  border-radius: 6px !important;
+  color: #0f172a !important;
+  font-weight: 800 !important;
+  padding: 10px 12px !important;
+}
+details[open] > summary {
+  background: #f8fafc !important;
+  border-bottom-left-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+.prose h3,
+.markdown h3 {
+  color: #0f172a !important;
+}
+@media (max-width: 820px) {
+  .ap-header,
+  .ap-hero-grid {
+    display: block;
+  }
+  .ap-header-side,
+  .ap-recorder {
+    margin-top: 12px;
+  }
+  .ap-flow,
+  .ap-status-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 """
 
 
@@ -518,6 +713,36 @@ def storage_status_html():
   <strong>Database:</strong> <code>{html.escape(status['db_path'])}</code><br>
   {html.escape(warning)}
 </div>
+"""
+
+
+def demo_story_html():
+    return """
+<section class="ap-hero-grid">
+  <div class="ap-story">
+    <h2>Autopilot keeps the family loop moving.</h2>
+    <p>
+      A coordinator registers the family, Adwuma Pa detects who is due or silent,
+      sends a secure check-in, processes the response, routes a relative when needed,
+      and keeps the loop open until someone confirms the next action.
+    </p>
+    <div class="ap-flow">
+      <div class="ap-flow-step"><strong>1. Watch</strong><span>Configurable silence thresholds per elder.</span></div>
+      <div class="ap-flow-step"><strong>2. Ask</strong><span>Tokenized web or WhatsApp check-ins.</span></div>
+      <div class="ap-flow-step"><strong>3. Understand</strong><span>ASR, translation, Qwen JSON analysis.</span></div>
+      <div class="ap-flow-step"><strong>4. Close</strong><span>Nudge the right relative and resolve the loop.</span></div>
+    </div>
+  </div>
+  <div class="ap-recorder">
+    <strong>1-2 minute recording path</strong>
+    <ul>
+      <li>Show family status and active check-ins.</li>
+      <li>Run Autopilot or create one secure request.</li>
+      <li>Submit a received text or voice response.</li>
+      <li>Show alert, relative route, and loop closure.</li>
+    </ul>
+  </div>
+</section>
 """
 
 
@@ -1149,14 +1374,8 @@ def send_checkin_whatsapp(request_id):
 def twilio_status_markdown():
     if twilio_client.configured():
         sender = twilio_client.configured_from()
-        return (
-            f"Twilio WhatsApp: **configured**. Sending from `{sender}`. "
-            "That sender must exist in this Twilio account as a WhatsApp Sandbox or approved WhatsApp channel."
-        )
-    return (
-        "Twilio WhatsApp: **not configured**. Set `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, "
-        "and `TWILIO_WHATSAPP_FROM`. For Twilio Sandbox, use `whatsapp:+14155238886`."
-    )
+        return f"WhatsApp delivery: **ready** from `{sender}`."
+    return "WhatsApp delivery: **off**. Create links now; enable Twilio when recording the live send."
 
 
 def install_webhook_routes(server):
@@ -1275,7 +1494,8 @@ def build_app():
         budget = gr.HTML(model_budget_markdown())
 
         with gr.Tabs():
-            with gr.Tab("Dashboard"):
+            with gr.Tab("Overview"):
+                gr.HTML(demo_story_html())
                 status_cards = gr.HTML(status_cards_html())
                 with gr.Row():
                     refresh = gr.Button("Refresh", variant="primary")
@@ -1284,8 +1504,6 @@ def build_app():
                 requests = gr.HTML(active_requests_html())
                 gr.HTML('<div class="ap-section-title">Family overview</div>')
                 family_table = gr.HTML(family_overview_html())
-                gr.HTML('<div class="ap-section-title">Care routes</div>')
-                care_routes = gr.HTML(care_routes_html())
                 gr.HTML('<div class="ap-section-title">Alerts and reviews</div>')
                 alerts = gr.HTML(alert_overview_html())
                 with gr.Row():
@@ -1294,8 +1512,9 @@ def build_app():
                     resolve_btn = gr.Button("Resolve latest open loop")
                 resolve_output = gr.Textbox(label="Loop action", interactive=False)
                 scan_output = gr.Textbox(label="Silence scan actions", lines=5, interactive=False)
+                care_routes = gr.HTML(care_routes_html(), visible=False)
 
-            with gr.Tab("Members"):
+            with gr.Tab("Family Setup"):
                 member_storage = gr.HTML(storage_status_html())
                 with gr.Accordion("Add family member", open=True):
                     with gr.Row():
@@ -1316,10 +1535,26 @@ def build_app():
                         new_call = gr.Checkbox(label="Voice call enabled", value=True)
                     add_btn = gr.Button("Add member", variant="primary")
                     add_output = gr.Textbox(label="Result", interactive=False)
-                    gr.HTML('<div class="ap-section-title">Registered family members</div>')
-                    member_registry = gr.HTML(member_registry_html())
 
-                with gr.Accordion("Edit family member", open=False):
+                with gr.Accordion("Add affiliation", open=True):
+                    with gr.Row():
+                        affiliation_subject = gr.Dropdown(choices=member_choices(), label="Person being cared for")
+                        affiliation_related = gr.Dropdown(choices=member_choices(), label="Related family member")
+                    with gr.Row():
+                        affiliation_relationship = gr.Dropdown(choices=RELATIONSHIP_CHOICES, value="family_coordinator", label="Relationship")
+                        affiliation_care_role = gr.Dropdown(choices=CARE_ROLE_CHOICES, value="first_party_contact", label="Care role")
+                    with gr.Row():
+                        affiliation_priority = gr.Number(label="Priority", value=5, precision=0)
+                        affiliation_can_coordinate = gr.Checkbox(label="Can coordinate this person's care", value=False)
+                    affiliation_notes = gr.Textbox(label="Notes", lines=2)
+                    affiliation_btn = gr.Button("Save affiliation", variant="primary")
+                    affiliation_output = gr.Textbox(label="Affiliation result", interactive=False)
+                    affiliation_table = gr.Dataframe(headers=AFFILIATION_HEADERS, value=[], label="Saved affiliations", interactive=False, wrap=True)
+
+                gr.HTML('<div class="ap-section-title">Registered family</div>')
+                member_registry = gr.HTML(member_registry_html())
+
+                with gr.Accordion("Edit and member history", open=False):
                     edit_member = gr.Dropdown(choices=member_choices(), label="Member to edit")
                     load_edit_member = gr.Button("Load member")
                     with gr.Row():
@@ -1340,94 +1575,95 @@ def build_app():
                         edit_call = gr.Checkbox(label="Voice call enabled", value=True)
                     save_edit_member = gr.Button("Save member changes", variant="primary")
                     edit_output = gr.Textbox(label="Edit result", interactive=False)
-
-                with gr.Accordion("Add affiliation", open=True):
-                    gr.Markdown("Attach any number of family or care relationships. Coordinators are members too, so add yourself here and connect yourself to the people you coordinate.")
-                    with gr.Row():
-                        affiliation_subject = gr.Dropdown(choices=member_choices(), label="Person being cared for / subject")
-                        affiliation_related = gr.Dropdown(choices=member_choices(), label="Related family member")
-                    with gr.Row():
-                        affiliation_relationship = gr.Dropdown(choices=RELATIONSHIP_CHOICES, value="family_coordinator", label="Relationship")
-                        affiliation_care_role = gr.Dropdown(choices=CARE_ROLE_CHOICES, value="family", label="Care role")
-                    with gr.Row():
-                        affiliation_priority = gr.Number(label="Priority", value=5, precision=0)
-                        affiliation_can_coordinate = gr.Checkbox(label="Can coordinate this person's care", value=False)
-                    affiliation_notes = gr.Textbox(label="Notes", lines=2)
-                    affiliation_btn = gr.Button("Save affiliation", variant="primary")
-                    affiliation_output = gr.Textbox(label="Affiliation result", interactive=False)
-                    affiliation_table = gr.Dataframe(headers=AFFILIATION_HEADERS, value=[], label="Affiliations for selected subject", interactive=False, wrap=True)
-
-                with gr.Accordion("Member detail and history", open=True):
+                    gr.HTML('<div class="ap-section-title">Member detail</div>')
                     detail_member = gr.Dropdown(choices=member_choices(), label="Family member")
                     load_detail = gr.Button("Load member detail", variant="primary")
                     member_profile = gr.HTML(member_profile_html(None))
-                    member_affiliations = gr.Dataframe(headers=AFFILIATION_HEADERS, value=[], label="Affiliations", interactive=False, wrap=True)
-                    member_checkins = gr.Dataframe(headers=CHECKIN_HEADERS, value=[], label="Check-in history", interactive=False, wrap=True)
-                    member_alerts = gr.Dataframe(headers=ALERT_HEADERS, value=[], label="Member alerts", interactive=False, wrap=True)
-                    member_nudges = gr.Dataframe(headers=NUDGE_HEADERS, value=[], label="Nudge history", interactive=False, wrap=True)
+                    with gr.Accordion("Raw history tables", open=False):
+                        member_affiliations = gr.Dataframe(headers=AFFILIATION_HEADERS, value=[], label="Affiliations", interactive=False, wrap=True)
+                        member_checkins = gr.Dataframe(headers=CHECKIN_HEADERS, value=[], label="Check-in history", interactive=False, wrap=True)
+                        member_alerts = gr.Dataframe(headers=ALERT_HEADERS, value=[], label="Member alerts", interactive=False, wrap=True)
+                        member_nudges = gr.Dataframe(headers=NUDGE_HEADERS, value=[], label="Nudge history", interactive=False, wrap=True)
 
-            with gr.Tab("Autopilot"):
+            with gr.Tab("Care Loop"):
                 source_state = gr.State("self")
-                with gr.Accordion("Create a check-in", open=True):
-                    request_member_picker = gr.Dropdown(choices=member_choices(), label="Family member")
-                    with gr.Row():
-                        manual_reason = gr.Textbox(label="Reason", value="coordinator_request")
-                        manual_priority = gr.Dropdown(
-                            choices=[("Routine", "routine"), ("Amber", "amber"), ("Red", "red")],
-                            value="routine",
-                            label="Priority",
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        gr.HTML('<div class="ap-section-title">Create and send</div>')
+                        request_member_picker = gr.Dropdown(choices=member_choices(), label="Person to check on")
+                        with gr.Row():
+                            manual_type = gr.Dropdown(
+                                choices=[("Elder check-in", "elder_checkin"), ("Relative field report", "field_report")],
+                                value="elder_checkin",
+                                label="Request type",
+                            )
+                            manual_priority = gr.Dropdown(
+                                choices=[("Routine", "routine"), ("Amber", "amber"), ("Red", "red")],
+                                value="routine",
+                                label="Priority",
+                            )
+                        manual_reason = gr.Dropdown(
+                            choices=[
+                                ("Coordinator request", "coordinator_request"),
+                                ("Routine check", "routine_check"),
+                                ("Reminder after silence", "reminder_silence"),
+                                ("Needs relative follow-up", "amber_silence"),
+                                ("Urgent silence escalation", "red_silence"),
+                            ],
+                            value="coordinator_request",
+                            label="Why this exists",
                         )
-                        manual_type = gr.Dropdown(
-                            choices=[("Elder check-in", "elder_checkin"), ("Field report", "field_report")],
-                            value="elder_checkin",
-                            label="Request type",
+                        manual_detail = gr.Textbox(label="Message", lines=2, value="Coordinator requested a check-in.")
+                        create_request_btn = gr.Button("Create secure check-in link", variant="primary")
+                        create_request_output = gr.Markdown()
+                        twilio_status = gr.Markdown(twilio_status_markdown())
+                        send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending request")
+                        send_whatsapp_btn = gr.Button("Send selected link by WhatsApp", variant="primary")
+                        send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
+                    with gr.Column(scale=1):
+                        gr.HTML('<div class="ap-section-title">Record response</div>')
+                        with gr.Row():
+                            request_token = gr.Textbox(label="Check-in link", placeholder="/checkin/...")
+                            load_request = gr.Button("Find", variant="primary")
+                        request_context = gr.Markdown("Find the request before saving a response.")
+                        with gr.Row():
+                            request_member = gr.Textbox(label="Person checked on", interactive=False)
+                            request_reason = gr.Textbox(label="Reason", interactive=False)
+                        with gr.Row():
+                            language = gr.Dropdown(
+                                choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
+                                value="twi",
+                                label="Language",
+                            )
+                            input_mode = gr.Radio([("Text", "text"), ("Voice", "voice")], value="text", label="Format")
+                        text = gr.Textbox(
+                            label="Received response",
+                            lines=5,
+                            placeholder="Paste the elder or relative response exactly as received.",
                         )
-                    manual_detail = gr.Textbox(label="Message", lines=2, value="Coordinator requested a check-in.")
-                    create_request_btn = gr.Button("Create secure check-in link", variant="primary")
-                    create_request_output = gr.Markdown()
+                        voice_audio = gr.Audio(
+                            sources=["microphone", "upload"],
+                            type="numpy",
+                            label="Voice audio, only when format is Voice",
+                        )
+                        submit = gr.Button("Save received response", variant="primary")
+                        receipt = gr.Textbox(label="Result", interactive=False)
+                        ai_json = gr.Code(label="Care processing result", language="json", visible=False)
 
-                with gr.Accordion("Send WhatsApp link", open=True):
-                    twilio_status = gr.Markdown(twilio_status_markdown())
-                    send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending check-in")
-                    send_whatsapp_btn = gr.Button("Send selected link by WhatsApp", variant="primary")
-                    send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
-                    outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
-
-                with gr.Accordion("Record received response", open=False):
-                    gr.Markdown(
-                        "Coordinator-only intake for a response received by WhatsApp, phone call, or manual test. "
-                        "Elders and relatives do not use this Space."
-                    )
+                with gr.Accordion("Loop tools and settings", open=False):
                     with gr.Row():
-                        request_token = gr.Textbox(label="Check-in link", placeholder="Paste the /checkin/... link tied to the response")
-                        load_request = gr.Button("Find check-in", variant="primary")
-                    request_context = gr.Markdown("Find the check-in before recording the response.")
-                    with gr.Row():
-                        request_member = gr.Textbox(label="Person being checked on", interactive=False)
-                        request_reason = gr.Textbox(label="Why this check-in exists", interactive=False)
-                    language = gr.Dropdown(
-                        choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
-                        value="twi",
-                        label="Response language",
-                    )
-                    input_mode = gr.Radio([("Text", "text"), ("Voice", "voice")], value="text", label="Response format")
-                    with gr.Accordion("Voice response", open=False):
-                        voice_audio = gr.Audio(sources=["microphone", "upload"], type="numpy", label="Upload or record received audio")
-                    text = gr.Textbox(
-                        label="Received response",
-                        lines=5,
-                        placeholder="Enter the elder or relative response exactly as received.",
-                    )
-                    submit = gr.Button("Save received response", variant="primary")
-                    receipt = gr.Textbox(label="Result", interactive=False)
-                    ai_json = gr.Code(label="Care processing result", language="json", visible=False)
-
-                with gr.Accordion("First-party relay", open=False):
-                    relay_member = gr.Dropdown(choices=member_choices(), label="Elder needing follow-up")
-                    nudge_btn = gr.Button("Draft first-party nudge", variant="primary")
+                        relay_member = gr.Dropdown(choices=member_choices(), label="Elder needing follow-up")
+                        nudge_btn = gr.Button("Draft relative nudge", variant="primary")
                     nudge_output = gr.Textbox(label="WhatsApp nudge draft", lines=4, interactive=False)
-
-                with gr.Accordion("TTS prompts", open=False):
+                    gr.HTML('<div class="ap-section-title">Escalation timing</div>')
+                    policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
+                    with gr.Row():
+                        reminder_minutes = gr.Number(label="Reminder after minutes", value=10080, precision=0)
+                        amber_minutes = gr.Number(label="Amber after minutes", value=14400, precision=0)
+                        red_minutes = gr.Number(label="Red after minutes", value=20160, precision=0)
+                    policy_btn = gr.Button("Save escalation policy", variant="primary")
+                    policy_output = gr.Textbox(label="Policy update", interactive=False)
+                    gr.HTML('<div class="ap-section-title">TTS prompt check</div>')
                     with gr.Row():
                         tts_member = gr.Dropdown(choices=member_choices(), label="Family member")
                         tts_language = gr.Dropdown(
@@ -1436,31 +1672,19 @@ def build_app():
                             label="TTS language",
                         )
                         tts_prompt_type = gr.Dropdown(choices=TTS_PROMPT_TYPES, value="reminder", label="Prompt type")
-                    tts_text = gr.Textbox(label="Prompt text", lines=4)
+                    tts_text = gr.Textbox(label="Prompt text", lines=3)
                     with gr.Row():
                         generate_tts_prompt = gr.Button("Generate prompt text")
                         synthesize_tts = gr.Button("Synthesize prompt", variant="primary")
                     tts_audio = gr.Audio(label="Generated prompt audio", type="numpy")
                     tts_status = gr.Textbox(label="TTS status", interactive=False)
+                    with gr.Accordion("Delivery log and data controls", open=False):
+                        outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
+                        gr.Markdown("Production data starts empty. This only clears records; it never loads dummy data.")
+                        clear_data_btn = gr.Button("Clear all data", variant="stop")
+                        admin_output = gr.Textbox(label="Admin action", interactive=False)
 
-                with gr.Accordion("Escalation policy", open=True):
-                    gr.Markdown(
-                        "Configure real check-in timing per person. Defaults are 7 days reminder, 10 days amber, 14 days red."
-                    )
-                    policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
-                    with gr.Row():
-                        reminder_minutes = gr.Number(label="Reminder after minutes", value=10080, precision=0)
-                        amber_minutes = gr.Number(label="Amber after minutes", value=14400, precision=0)
-                        red_minutes = gr.Number(label="Red after minutes", value=20160, precision=0)
-                    policy_btn = gr.Button("Save escalation policy", variant="primary")
-                    policy_output = gr.Textbox(label="Policy update", interactive=False)
-
-                with gr.Accordion("Data controls", open=False):
-                    gr.Markdown("Production data starts empty. This only clears records; it never loads dummy data.")
-                    clear_data_btn = gr.Button("Clear all data", variant="stop")
-                    admin_output = gr.Textbox(label="Admin action", interactive=False)
-
-            with gr.Tab("Build"):
+            with gr.Tab("Build Notes"):
                 gr.Markdown(
                     """
 ### Submission positioning

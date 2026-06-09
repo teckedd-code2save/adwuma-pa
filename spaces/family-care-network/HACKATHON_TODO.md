@@ -53,7 +53,7 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 - [x] Improve layout and visual polish for the demo.
 - [x] Add member detail/history view.
 - [x] Add status cards for green, reminder, amber, red counts.
-- [ ] Add clearer demo flow controls for judges.
+- [x] Add clearer demo flow controls for judges.
 
 ## Phase 3: Wire Speech And Translation Into Main App
 
