@@ -10,23 +10,22 @@ import modal
 
 APP_NAME = "adwuma-pa-inference"
 
-image = (
+web_image = modal.Image.debian_slim(python_version="3.11").pip_install("fastapi[standard]")
+
+translate_image = (
     modal.Image.debian_slim(python_version="3.11")
-    .apt_install("libsndfile1", "ffmpeg")
-    .pip_install(
-        "accelerate",
-        "fastapi[standard]",
-        "librosa",
-        "numpy",
-        "protobuf",
-        "sentencepiece",
-        "soundfile",
-        "torch",
-        "transformers>=4.40",
-    )
+    .pip_install("sentencepiece", "torch", "transformers>=4.40")
 )
 
-app = modal.App(APP_NAME, image=image)
+audio_image = (
+    modal.Image.debian_slim(python_version="3.11")
+    .apt_install("libsndfile1", "ffmpeg")
+    .pip_install("accelerate", "librosa", "numpy", "protobuf", "sentencepiece", "soundfile", "torch", "transformers>=4.40")
+)
+
+llm_image = modal.Image.debian_slim(python_version="3.11").pip_install("accelerate", "torch", "transformers>=4.40")
+
+app = modal.App(APP_NAME)
 
 CPU_COST_LIMITS = dict(min_containers=0, max_containers=1, buffer_containers=0, scaledown_window=5, timeout=150)
 GPU_COST_LIMITS = dict(
@@ -40,27 +39,49 @@ GPU_COST_LIMITS = dict(
 )
 
 
-@app.function(**CPU_COST_LIMITS)
-@modal.fastapi_endpoint(method="GET", docs=True)
-def health() -> dict[str, Any]:
-    return {
-        "status": "ok",
-        "app": APP_NAME,
-        "cost_policy": {
-            "min_containers": 0,
-            "max_containers": 1,
-            "gpu_scaledown_window_seconds": GPU_COST_LIMITS["scaledown_window"],
-            "cron_default": "not enabled during development",
-        },
-        "endpoints": ["health", "translate", "transcribe", "analyze", "speak"],
-    }
+@app.function(image=web_image, **CPU_COST_LIMITS)
+@modal.asgi_app(label="api")
+def api():
+    from fastapi import FastAPI
+
+    web = FastAPI(title="Adwuma Pa Modal Inference")
+
+    @web.get("/health")
+    def health() -> dict[str, Any]:
+        return {
+            "status": "ok",
+            "app": APP_NAME,
+            "cost_policy": {
+                "min_containers": 0,
+                "max_containers": 1,
+                "cpu_scaledown_window_seconds": CPU_COST_LIMITS["scaledown_window"],
+                "gpu_scaledown_window_seconds": GPU_COST_LIMITS["scaledown_window"],
+                "cron_default": "not enabled during development",
+            },
+            "endpoints": ["health", "translate", "transcribe", "analyze", "speak"],
+        }
+
+    @web.post("/translate")
+    def translate(payload: dict[str, Any]) -> dict[str, Any]:
+        return translate_impl.remote(payload)
+
+    @web.post("/transcribe")
+    def transcribe(payload: dict[str, Any]) -> dict[str, Any]:
+        return transcribe_impl.remote(payload)
+
+    @web.post("/analyze")
+    def analyze(payload: dict[str, Any]) -> dict[str, Any]:
+        return analyze_impl.remote(payload)
+
+    @web.post("/speak")
+    def speak(payload: dict[str, Any]) -> dict[str, Any]:
+        return speak_impl.remote(payload)
+
+    return web
 
 
-@app.function(**CPU_COST_LIMITS)
-@modal.fastapi_endpoint(method="POST")
-def translate(payload: dict[str, Any]) -> dict[str, Any]:
-    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-
+@app.function(image=translate_image, **CPU_COST_LIMITS)
+def translate_impl(payload: dict[str, Any]) -> dict[str, Any]:
     text = (payload.get("text") or "").strip()
     source_language = payload.get("source_language") or "twi"
     if not text:
@@ -68,9 +89,7 @@ def translate(payload: dict[str, Any]) -> dict[str, Any]:
     if source_language == "eng":
         return {"status": "complete", "translated_text": text, "model_id": "identity"}
 
-    model_id = "ninte/twi-en-nllb-v2"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
+    tokenizer, model = _translation_model()
     src_lang = "twi_Latn"
     tgt_lang = "eng_Latn"
     if hasattr(tokenizer, "src_lang"):
@@ -85,18 +104,16 @@ def translate(payload: dict[str, Any]) -> dict[str, Any]:
     return {
         "status": "complete",
         "translated_text": translated,
-        "model_id": model_id,
+        "model_id": "ninte/twi-en-nllb-v2",
         "source_language": src_lang,
         "target_language": tgt_lang,
     }
 
 
-@app.function(**GPU_COST_LIMITS)
-@modal.fastapi_endpoint(method="POST")
-def transcribe(payload: dict[str, Any]) -> dict[str, Any]:
+@app.function(image=audio_image, **GPU_COST_LIMITS)
+def transcribe_impl(payload: dict[str, Any]) -> dict[str, Any]:
     import numpy as np
     import soundfile as sf
-    from transformers import AutoProcessor, Wav2Vec2ForCTC
 
     encoded = payload.get("audio_wav_base64")
     language = payload.get("language") or "twi"
@@ -113,10 +130,8 @@ def transcribe(payload: dict[str, Any]) -> dict[str, Any]:
         waveform = librosa.resample(np.asarray(waveform), orig_sr=sample_rate, target_sr=16000)
         sample_rate = 16000
 
+    processor, model = _asr_model()
     language_code = "aka" if language in {"twi", "fat", "aka"} else "eng"
-    model_id = "facebook/mms-1b-all"
-    processor = AutoProcessor.from_pretrained(model_id)
-    model = Wav2Vec2ForCTC.from_pretrained(model_id)
     processor.tokenizer.set_target_lang(language_code)
     model.load_adapter(language_code)
 
@@ -133,19 +148,17 @@ def transcribe(payload: dict[str, Any]) -> dict[str, Any]:
         "text": text,
         "confidence": confidence,
         "low_confidence": confidence < 0.4 or len(text.strip()) < 3,
-        "model_used": model_id,
+        "model_used": "facebook/mms-1b-all",
         "language_code": language_code,
     }
 
 
-@app.function(**GPU_COST_LIMITS)
-@modal.fastapi_endpoint(method="POST")
-def analyze(payload: dict[str, Any]) -> dict[str, Any]:
-    from transformers import AutoModelForCausalLM, AutoTokenizer
+@app.function(image=llm_image, **GPU_COST_LIMITS)
+def analyze_impl(payload: dict[str, Any]) -> dict[str, Any]:
+    import torch
 
+    tokenizer, model = _qwen_model()
     model_id = "Qwen/Qwen2.5-7B-Instruct"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
     prompt = analysis_prompt(payload)
     messages = [
         {"role": "system", "content": "Return strict JSON only. Do not include markdown."},
@@ -153,7 +166,8 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
     ]
     text = tokenizer.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
     inputs = tokenizer([text], return_tensors="pt").to(model.device)
-    generated = model.generate(**inputs, max_new_tokens=384, temperature=0.2)
+    with torch.no_grad():
+        generated = model.generate(**inputs, max_new_tokens=384, temperature=0.2)
     output_ids = generated[0][len(inputs.input_ids[0]) :]
     raw = tokenizer.decode(output_ids, skip_special_tokens=True).strip()
     try:
@@ -163,26 +177,20 @@ def analyze(payload: dict[str, Any]) -> dict[str, Any]:
     return {"status": "complete", "model_id": model_id, "analysis": analysis}
 
 
-@app.function(**GPU_COST_LIMITS)
-@modal.fastapi_endpoint(method="POST")
-def speak(payload: dict[str, Any]) -> dict[str, Any]:
-    from transformers import AutoTokenizer, VitsModel
+@app.function(image=audio_image, **GPU_COST_LIMITS)
+def speak_impl(payload: dict[str, Any]) -> dict[str, Any]:
+    import soundfile as sf
+    import torch
 
     text = (payload.get("text") or "").strip()
     language = payload.get("language") or "twi"
     if not text:
         return {"status": "needs_review", "error": "No text provided for TTS."}
-    model_id = "facebook/mms-tts-eng" if language == "eng" else "facebook/mms-tts-aka"
-    tokenizer = AutoTokenizer.from_pretrained(model_id)
-    model = VitsModel.from_pretrained(model_id)
-
-    import torch
+    tokenizer, model, model_id = _tts_model(language)
 
     inputs = tokenizer(text, return_tensors="pt")
     with torch.no_grad():
         waveform = model(**inputs).waveform.squeeze().cpu().numpy()
-
-    import soundfile as sf
 
     buffer = io.BytesIO()
     sf.write(buffer, waveform, int(model.config.sampling_rate), format="WAV")
@@ -192,6 +200,65 @@ def speak(payload: dict[str, Any]) -> dict[str, Any]:
         "audio_wav_base64": base64.b64encode(buffer.getvalue()).decode("ascii"),
         "sample_rate": int(model.config.sampling_rate),
     }
+
+
+def _translation_model():
+    from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+
+    global _TRANSLATION_CACHE
+    try:
+        return _TRANSLATION_CACHE
+    except NameError:
+        model_id = "ninte/twi-en-nllb-v2"
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModelForSeq2SeqLM.from_pretrained(model_id)
+        _TRANSLATION_CACHE = (tokenizer, model)
+        return _TRANSLATION_CACHE
+
+
+def _asr_model():
+    from transformers import AutoProcessor, Wav2Vec2ForCTC
+
+    global _ASR_CACHE
+    try:
+        return _ASR_CACHE
+    except NameError:
+        model_id = "facebook/mms-1b-all"
+        processor = AutoProcessor.from_pretrained(model_id)
+        model = Wav2Vec2ForCTC.from_pretrained(model_id)
+        _ASR_CACHE = (processor, model)
+        return _ASR_CACHE
+
+
+def _qwen_model():
+    from transformers import AutoModelForCausalLM, AutoTokenizer
+
+    global _QWEN_CACHE
+    try:
+        return _QWEN_CACHE
+    except NameError:
+        model_id = "Qwen/Qwen2.5-7B-Instruct"
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = AutoModelForCausalLM.from_pretrained(model_id, torch_dtype="auto", device_map="auto")
+        _QWEN_CACHE = (tokenizer, model)
+        return _QWEN_CACHE
+
+
+def _tts_model(language: str):
+    from transformers import AutoTokenizer, VitsModel
+
+    global _TTS_CACHE
+    try:
+        cache = _TTS_CACHE
+    except NameError:
+        cache = {}
+        _TTS_CACHE = cache
+    model_id = "facebook/mms-tts-eng" if language == "eng" else "facebook/mms-tts-aka"
+    if model_id not in cache:
+        tokenizer = AutoTokenizer.from_pretrained(model_id)
+        model = VitsModel.from_pretrained(model_id)
+        cache[model_id] = (tokenizer, model, model_id)
+    return cache[model_id]
 
 
 def analysis_prompt(payload: dict[str, Any]) -> str:
