@@ -288,7 +288,7 @@ select {
 .ap-status-grid {
   display: grid;
   gap: 10px;
-  grid-template-columns: repeat(4, minmax(120px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   margin: 10px 0 14px;
 }
 .ap-status-card {
@@ -718,7 +718,7 @@ def storage_status_html():
 
 def demo_story_html():
     return """
-<section class="ap-hero-grid">
+<section>
   <div class="ap-story">
     <h2>Autopilot keeps the family loop moving.</h2>
     <p>
@@ -732,15 +732,6 @@ def demo_story_html():
       <div class="ap-flow-step"><strong>3. Understand</strong><span>ASR, translation, Qwen JSON analysis.</span></div>
       <div class="ap-flow-step"><strong>4. Close</strong><span>Nudge the right relative and resolve the loop.</span></div>
     </div>
-  </div>
-  <div class="ap-recorder">
-    <strong>1-2 minute recording path</strong>
-    <ul>
-      <li>Show family status and active check-ins.</li>
-      <li>Run Autopilot or create one secure request.</li>
-      <li>Submit a received text or voice response.</li>
-      <li>Show alert, relative route, and loop closure.</li>
-    </ul>
   </div>
 </section>
 """
@@ -911,7 +902,7 @@ def friendly_reason(reason):
 
 def status_cards_html():
     rows = dashboard_rows()
-    counts = {status: 0 for status in ["Green", "Reminder", "Amber", "Red"]}
+    counts = {status: 0 for status in ["Green", "Reminder", "Amber", "Red", "Support"]}
     for row in rows:
         counts[row["Status"]] = counts.get(row["Status"], 0) + 1
     return f"""
@@ -920,6 +911,7 @@ def status_cards_html():
   <div class="ap-status-card ap-reminder"><div class="ap-status-label">Reminder</div><div class="ap-status-value">{counts.get("Reminder", 0)}</div></div>
   <div class="ap-status-card ap-amber"><div class="ap-status-label">Amber</div><div class="ap-status-value">{counts.get("Amber", 0)}</div></div>
   <div class="ap-status-card ap-red"><div class="ap-status-label">Red</div><div class="ap-status-value">{counts.get("Red", 0)}</div></div>
+  <div class="ap-status-card"><div class="ap-status-label">Support</div><div class="ap-status-value">{counts.get("Support", 0)}</div></div>
 </div>
 """
 
@@ -1111,6 +1103,7 @@ def add_member(name, phone, whatsapp, city, region, language, family_role, is_co
         f"Saved {name}. Phone: {member['phone']}. WhatsApp: {member['whatsapp']}.",
         member_registry_html(),
         storage_status_html(),
+        status_cards_html(),
         family_overview_html(),
         care_routes_html(),
         choices,
@@ -1156,6 +1149,7 @@ def save_member_edits(member_id, name, phone, whatsapp, city, region, language, 
         member_registry_html(),
         storage_status_html(),
         member_profile_html(member_id),
+        status_cards_html(),
         family_overview_html(),
         care_routes_html(),
         choices,
@@ -1354,7 +1348,11 @@ def create_manual_request(member_id, reason_code, reason_detail, request_type, p
     request = db.one("SELECT token FROM checkup_requests WHERE id = ?", (request_id,))
     return (
         f"Created secure check-in link:\n\n`/checkin/{request['token']}`",
+        status_cards_html(),
         active_requests_html(),
+        family_overview_html(),
+        care_routes_html(),
+        alert_overview_html(),
         gr.Dropdown(choices=pending_request_choices()),
     )
 
@@ -1383,14 +1381,23 @@ def send_checkin_whatsapp(request_id):
     message = result.message
     if result.sid:
         message = f"{message} SID: {result.sid}"
-    return message, active_requests_html(), outbound_table_value(), choices
+    return (
+        message,
+        status_cards_html(),
+        active_requests_html(),
+        family_overview_html(),
+        care_routes_html(),
+        alert_overview_html(),
+        outbound_table_value(),
+        choices,
+    )
 
 
 def twilio_status_markdown():
     if twilio_client.configured():
         sender = twilio_client.configured_from()
         return f"WhatsApp delivery: **ready** from `{sender}`."
-    return "WhatsApp delivery: **off**. Create links now; enable Twilio when recording the live send."
+    return "WhatsApp delivery: **off**. Create secure links now; enable Twilio when the family is ready for live messages."
 
 
 def public_checkin_page(token: str, request: dict, message: str = "") -> str:
@@ -1665,6 +1672,7 @@ def update_escalation_settings(member_id, reminder_minutes, amber_minutes, red_m
     return (
         f"Updated {member['name']}: reminder {member['reminder_minutes']} min, "
         f"amber {member['escalation_minutes_amber']} min, red {member['escalation_minutes_red']} min.",
+        status_cards_html(),
         family_overview_html(),
     )
 
@@ -1745,12 +1753,13 @@ def build_app():
                 family_table = gr.HTML(family_overview_html())
                 gr.HTML('<div class="ap-section-title">Alerts and reviews</div>')
                 alerts = gr.HTML(alert_overview_html())
+                gr.HTML('<div class="ap-section-title">Close confirmed follow-up</div>')
                 with gr.Row():
-                    resolved_by = gr.Textbox(label="Resolved by", value="Coordinator")
-                    resolution_notes = gr.Textbox(label="Closure note", value="Relative checked in and confirmed next action.")
-                    resolve_btn = gr.Button("Resolve latest alert")
-                resolve_output = gr.Textbox(label="Loop action", interactive=False)
-                scan_output = gr.Textbox(label="Silence scan actions", lines=5, interactive=False)
+                    resolved_by = gr.Textbox(label="Confirmed by", value="Coordinator")
+                    resolution_notes = gr.Textbox(label="What happened", value="Relative checked in and confirmed next action.")
+                    resolve_btn = gr.Button("Close most urgent alert")
+                resolve_output = gr.Textbox(label="Closure result", interactive=False)
+                scan_output = gr.Textbox(label="Autopilot result", lines=5, interactive=False)
                 care_routes = gr.HTML(care_routes_html(), visible=False)
 
             with gr.Tab("Family Setup"):
@@ -1957,7 +1966,7 @@ Codex converted the product spec into two working Hugging Face Spaces: the ASR e
 
 ### Current execution plan
 
-Next: start Modal only for targeted endpoint validation, then stop it before demo recording.
+Next: start Modal only for targeted endpoint validation, then stop it when live testing is complete.
                     """
                 )
                 modal_status = gr.Markdown(modal_health_markdown())
@@ -1978,12 +1987,12 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
         create_request_btn.click(
             create_manual_request,
             inputs=[request_member_picker, manual_reason, manual_detail, manual_type, manual_priority],
-            outputs=[create_request_output, requests, send_request_picker],
+            outputs=[create_request_output, status_cards, requests, family_table, care_routes, alerts, send_request_picker],
         )
         send_whatsapp_btn.click(
             send_checkin_whatsapp,
             inputs=[send_request_picker],
-            outputs=[send_whatsapp_output, requests, outbound_messages, send_request_picker],
+            outputs=[send_whatsapp_output, status_cards, requests, family_table, care_routes, alerts, outbound_messages, send_request_picker],
         )
         nudge_btn.click(nudge, inputs=[relay_member], outputs=[nudge_output])
         generate_tts_prompt.click(build_tts_prompt, inputs=[tts_member, tts_prompt_type, tts_language], outputs=[tts_text])
@@ -2013,6 +2022,7 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
                 member_registry,
                 member_storage,
                 member_profile,
+                status_cards,
                 family_table,
                 care_routes,
                 request_member_picker,
@@ -2038,7 +2048,7 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
             ],
             outputs=[affiliation_output, affiliation_table, member_profile, family_table, care_routes],
         )
-        policy_btn.click(update_escalation_settings, inputs=[policy_member, reminder_minutes, amber_minutes, red_minutes], outputs=[policy_output, family_table])
+        policy_btn.click(update_escalation_settings, inputs=[policy_member, reminder_minutes, amber_minutes, red_minutes], outputs=[policy_output, status_cards, family_table])
         add_btn.click(
             add_member,
             inputs=[new_name, new_phone, new_whatsapp, new_city, new_region, new_language, new_role, new_is_coordinator, new_call],
@@ -2046,6 +2056,7 @@ Next: start Modal only for targeted endpoint validation, then stop it before dem
                 add_output,
                 member_registry,
                 member_storage,
+                status_cards,
                 family_table,
                 care_routes,
                 request_member_picker,
