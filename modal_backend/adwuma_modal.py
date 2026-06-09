@@ -27,14 +27,14 @@ llm_image = modal.Image.debian_slim(python_version="3.11").pip_install("accelera
 
 app = modal.App(APP_NAME)
 
-CPU_COST_LIMITS = dict(min_containers=0, max_containers=1, buffer_containers=0, scaledown_window=5, timeout=150)
+CPU_COST_LIMITS = dict(min_containers=0, max_containers=1, buffer_containers=0, scaledown_window=5, timeout=420)
 GPU_COST_LIMITS = dict(
     gpu="A10G",
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
     scaledown_window=10,
-    timeout=150,
+    timeout=420,
     startup_timeout=600,
 )
 

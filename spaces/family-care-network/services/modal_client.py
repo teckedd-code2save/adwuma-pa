@@ -105,7 +105,7 @@ def translate_text(text: str, source_language: str) -> ModalResult:
 
 
 def analyze_concern(payload: dict[str, Any]) -> ModalResult:
-    return _post("analyze", payload)
+    return _post("analyze", payload, timeout=420)
 
 
 def synthesize_speech(text: str, language: str) -> ModalResult:
