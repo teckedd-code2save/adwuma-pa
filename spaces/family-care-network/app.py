@@ -866,20 +866,35 @@ def alert_overview_html(limit=8):
         return '<div class="ap-empty">No open alerts or review items.</div>'
     items = []
     for row in rows:
-        state = row["State"].lower()
+        state_label = "Needs closure" if row["State"].lower() == "open" else row["State"]
+        action = alert_next_action(row["Type"])
         items.append(
             f"""
             <article class="ap-item ap-alert">
               <div>
                 <div class="ap-item-title">{row['Member']}</div>
-                <div class="ap-item-meta">{row['Type']} · {row['State']}</div>
+                <div class="ap-item-meta">{row['Type']} · {state_label}</div>
                 <div class="ap-item-note">{row['Notes'] or 'No notes yet.'}</div>
+                <div class="ap-item-note"><strong>Next:</strong> {action}</div>
               </div>
-              <span class="ap-state">{state}</span>
+              <span class="ap-state">{state_label.lower()}</span>
             </article>
             """
         )
     return '<section class="ap-list">' + "\n".join(items) + "</section>"
+
+
+def alert_next_action(alert_type):
+    alert_type = (alert_type or "").lower()
+    if alert_type.startswith("red"):
+        return "Call the elder or nudge the assigned relative, then resolve when someone confirms the next action."
+    if alert_type.startswith("amber"):
+        return "Ask the assigned relative to check in, then resolve once the family has a confirmed update."
+    if alert_type == "needs_review":
+        return "Review the saved response and model error, then resolve or create a follow-up request."
+    if alert_type.startswith("reminder"):
+        return "Send or resend a check-in link, then resolve after a response arrives."
+    return "Use Resolve latest alert after the coordinator confirms the next family action."
 
 
 def friendly_reason(reason):
@@ -1733,7 +1748,7 @@ def build_app():
                 with gr.Row():
                     resolved_by = gr.Textbox(label="Resolved by", value="Coordinator")
                     resolution_notes = gr.Textbox(label="Closure note", value="Relative checked in and confirmed next action.")
-                    resolve_btn = gr.Button("Resolve latest open loop")
+                    resolve_btn = gr.Button("Resolve latest alert")
                 resolve_output = gr.Textbox(label="Loop action", interactive=False)
                 scan_output = gr.Textbox(label="Silence scan actions", lines=5, interactive=False)
                 care_routes = gr.HTML(care_routes_html(), visible=False)
