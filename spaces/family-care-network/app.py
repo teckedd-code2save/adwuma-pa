@@ -5,7 +5,7 @@ import json
 import os
 from urllib.parse import parse_qs
 
-from fastapi import FastAPI, Request, Response
+from fastapi import BackgroundTasks, FastAPI, Request, Response
 import gradio as gr
 
 from config.models import ASR_CONFIG, LLM_CONFIG, TRANSLATION_CONFIG, TTS_CONFIG, total_parameter_budget_b
@@ -1542,6 +1542,16 @@ def public_checkin_result_page(request: dict, result: dict) -> str:
     return public_checkin_page(request["token"], {**request, "status": "complete"}, message)
 
 
+def process_public_checkin(token: str, text: str, language: str, source: str) -> None:
+    pipeline.submit_request_response(
+        token=token,
+        text=text,
+        language=language,
+        input_type="text",
+        source=source,
+    )
+
+
 def install_webhook_routes(server):
     @server.get("/checkin/{token}")
     async def public_checkin(token: str):
@@ -1557,7 +1567,7 @@ def install_webhook_routes(server):
         return Response(content=public_checkin_page(normalized, request), media_type="text/html")
 
     @server.post("/checkin/{token}")
-    async def submit_public_checkin(token: str, request: Request):
+    async def submit_public_checkin(token: str, request: Request, background_tasks: BackgroundTasks):
         db.init_db()
         normalized = normalize_token(token)
         checkup = db.get_request_by_token(normalized)
@@ -1577,15 +1587,21 @@ def install_webhook_routes(server):
                 status_code=400,
                 media_type="text/html",
             )
-        result = pipeline.submit_request_response(
-            token=normalized,
-            text=text,
-            language=language,
-            input_type="text",
-            source="field_report" if checkup["request_type"] == "field_report" else "self",
+        background_tasks.add_task(
+            process_public_checkin,
+            normalized,
+            text,
+            language,
+            "field_report" if checkup["request_type"] == "field_report" else "self",
         )
-        refreshed = db.get_request_by_token(normalized) or checkup
-        return Response(content=public_checkin_result_page(refreshed, result), media_type="text/html")
+        return Response(
+            content=public_checkin_page(
+                normalized,
+                checkup,
+                "Thank you. Your update was received and is being processed for the family coordinator.",
+            ),
+            media_type="text/html",
+        )
 
     @server.get("/twilio/health")
     async def twilio_health():
@@ -1596,13 +1612,13 @@ def install_webhook_routes(server):
         return db.storage_status()
 
     @server.post("/twilio/whatsapp")
-    async def twilio_whatsapp(request: Request):
+    async def twilio_whatsapp(request: Request, background_tasks: BackgroundTasks):
         raw_body = (await request.body()).decode("utf-8")
         payload = {key: values[0] if values else "" for key, values in parse_qs(raw_body).items()}
         sender = payload.get("From", "")
         message_body = payload.get("Body", "")
         if sender and message_body:
-            twilio_client.receive_whatsapp_reply(sender, message_body)
+            background_tasks.add_task(twilio_client.receive_whatsapp_reply, sender, message_body)
         xml = '<?xml version="1.0" encoding="UTF-8"?><Response></Response>'
         return Response(content=xml, media_type="application/xml")
 
