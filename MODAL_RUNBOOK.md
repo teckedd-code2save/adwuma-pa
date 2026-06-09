@@ -86,8 +86,8 @@ modal deploy modal_backend/cron.py
 Stop the inference app and cron app after validation/demo:
 
 ```bash
-modal app stop adwuma-pa-inference
-modal app stop adwuma-pa-cron
+modal app stop adwuma-pa-inference --yes
+modal app stop adwuma-pa-cron --yes
 ```
 
 Then remove or blank the HF Space variable if you want the public app to return `needs_review` instead of calling Modal:
@@ -105,6 +105,20 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 - GPU functions use short `scaledown_window=10`.
 - Cron is not deployed until final demo validation.
 - Failed or unavailable inference becomes `needs_review`; never fake a concern score.
+
+## Last Validation Session
+
+2026-06-09:
+
+- Modal auth confirmed for workspace `createdliving1000`.
+- Deployed `adwuma-pa-inference`.
+- API base URL: `https://createdliving1000--api.modal.run`.
+- `/health` returned HTTP 200.
+- `/translate` returned HTTP 200 for `Me ho ye, na me nsa aka aduan. Meda wo ase.`
+- Translation output: `I am well, I have had food. Thank you.`
+- Translation model: `ninte/twi-en-nllb-v2`.
+- No ASR, Qwen, TTS, or cron endpoints were tested in this session.
+- App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
 
 ## Current Secret Checklist
 
