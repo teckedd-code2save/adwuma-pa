@@ -1378,7 +1378,215 @@ def twilio_status_markdown():
     return "WhatsApp delivery: **off**. Create links now; enable Twilio when recording the live send."
 
 
+def public_checkin_page(token: str, request: dict, message: str = "") -> str:
+    checked = {
+        "twi": "selected" if request.get("language") == "twi" else "",
+        "fat": "selected" if request.get("language") == "fat" else "",
+        "eng": "selected" if request.get("language") == "eng" else "",
+    }
+    expected = "relative or caregiver" if request["request_type"] == "field_report" else "elder"
+    submit_disabled = "disabled" if request["status"] == "complete" else ""
+    status_note = (
+        "This check-in has already been completed."
+        if request["status"] == "complete"
+        else "Write a short update. If AI is unavailable, your response is still saved for family review."
+    )
+    escaped_message = f'<div class="notice">{html.escape(message)}</div>' if message else ""
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Adwuma Pa Check-in</title>
+  <style>
+    body {{
+      background: #e2e8f0;
+      color: #0f172a;
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      padding: 22px;
+    }}
+    main {{
+      background: #ffffff;
+      border: 1px solid #94a3b8;
+      border-radius: 10px;
+      margin: 0 auto;
+      max-width: 680px;
+      overflow: hidden;
+    }}
+    header {{
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 22px;
+    }}
+    h1 {{
+      font-size: 28px;
+      line-height: 1.1;
+      margin: 0 0 8px;
+    }}
+    header p {{
+      color: #cbd5e1;
+      line-height: 1.45;
+      margin: 0;
+    }}
+    section {{
+      padding: 20px 22px 22px;
+    }}
+    .meta {{
+      border-bottom: 1px solid #cbd5e1;
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+    }}
+    .meta strong, label {{
+      color: #0f172a;
+      display: block;
+      font-weight: 800;
+      margin-bottom: 6px;
+    }}
+    .meta div {{
+      color: #334155;
+      margin: 0 0 10px;
+    }}
+    select, textarea {{
+      background: #ffffff;
+      border: 1px solid #64748b;
+      border-radius: 8px;
+      box-sizing: border-box;
+      color: #0f172a;
+      font: inherit;
+      margin-bottom: 14px;
+      padding: 12px;
+      width: 100%;
+    }}
+    textarea {{
+      min-height: 150px;
+      resize: vertical;
+    }}
+    button {{
+      background: #064e3b;
+      border: 1px solid #064e3b;
+      border-radius: 8px;
+      color: #ffffff;
+      cursor: pointer;
+      font: inherit;
+      font-weight: 800;
+      padding: 13px 16px;
+      width: 100%;
+    }}
+    button:disabled {{
+      background: #94a3b8;
+      border-color: #94a3b8;
+      cursor: not-allowed;
+    }}
+    .notice {{
+      background: #ecfdf5;
+      border: 1px solid #047857;
+      border-radius: 8px;
+      color: #064e3b;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 14px;
+      padding: 12px;
+    }}
+    .hint {{
+      color: #475569;
+      font-size: 14px;
+      line-height: 1.45;
+      margin: 12px 0 0;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Adwuma Pa</h1>
+      <p>Secure family check-in for {html.escape(request["member_name"])}.</p>
+    </header>
+    <section>
+      {escaped_message}
+      <div class="meta">
+        <strong>Person being checked on</strong>
+        <div>{html.escape(request["member_name"])} · {html.escape(request.get("location_city") or "Location not set")}</div>
+        <strong>Expected responder</strong>
+        <div>{html.escape(expected)}</div>
+        <strong>Reason</strong>
+        <div>{html.escape(friendly_reason(request["reason_code"]))}</div>
+        <strong>Details</strong>
+        <div>{html.escape(request.get("reason_detail") or "No extra details.")}</div>
+      </div>
+      <form method="post" action="/checkin/{html.escape(token)}">
+        <label for="language">Response language</label>
+        <select id="language" name="language">
+          <option value="twi" {checked["twi"]}>Twi</option>
+          <option value="fat" {checked["fat"]}>Fante</option>
+          <option value="eng" {checked["eng"]}>English</option>
+        </select>
+        <label for="text">Response</label>
+        <textarea id="text" name="text" required placeholder="Type the update here."></textarea>
+        <button type="submit" {submit_disabled}>Send update</button>
+      </form>
+      <p class="hint">{html.escape(status_note)}</p>
+    </section>
+  </main>
+</body>
+</html>"""
+
+
+def public_checkin_result_page(request: dict, result: dict) -> str:
+    if result.get("status") == "complete":
+        message = "Thank you. Your update was received and shared with the family coordinator."
+    elif result.get("status") == "needs_review":
+        message = "Thank you. Your update was received and saved for family review."
+    else:
+        message = result.get("message") or "Your response could not be saved. Please contact the family coordinator."
+    return public_checkin_page(request["token"], {**request, "status": "complete"}, message)
+
+
 def install_webhook_routes(server):
+    @server.get("/checkin/{token}")
+    async def public_checkin(token: str):
+        db.init_db()
+        normalized = normalize_token(token)
+        request = db.get_request_by_token(normalized)
+        if not request:
+            return Response(
+                content="<h1>Check-in not found</h1><p>This link is invalid or no longer exists.</p>",
+                status_code=404,
+                media_type="text/html",
+            )
+        return Response(content=public_checkin_page(normalized, request), media_type="text/html")
+
+    @server.post("/checkin/{token}")
+    async def submit_public_checkin(token: str, request: Request):
+        db.init_db()
+        normalized = normalize_token(token)
+        checkup = db.get_request_by_token(normalized)
+        if not checkup:
+            return Response(
+                content="<h1>Check-in not found</h1><p>This link is invalid or no longer exists.</p>",
+                status_code=404,
+                media_type="text/html",
+            )
+        raw_body = (await request.body()).decode("utf-8")
+        payload = {key: values[0] if values else "" for key, values in parse_qs(raw_body).items()}
+        text = (payload.get("text") or "").strip()
+        language = payload.get("language") or checkup.get("language") or "twi"
+        if not text:
+            return Response(
+                content=public_checkin_page(normalized, checkup, "Please type a response before sending."),
+                status_code=400,
+                media_type="text/html",
+            )
+        result = pipeline.submit_request_response(
+            token=normalized,
+            text=text,
+            language=language,
+            input_type="text",
+            source="field_report" if checkup["request_type"] == "field_report" else "self",
+        )
+        refreshed = db.get_request_by_token(normalized) or checkup
+        return Response(content=public_checkin_result_page(refreshed, result), media_type="text/html")
+
     @server.get("/twilio/health")
     async def twilio_health():
         return {"ok": True, "service": "adwuma-pa-twilio"}
