@@ -67,12 +67,13 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 
 ## Phase 4: Real Relay Workflow
 
-- [ ] Add contact assignment UI.
-- [ ] Add Twilio WhatsApp sandbox config.
+- [x] Add contact assignment UI.
+- [x] Add Twilio WhatsApp sandbox config.
 - [x] Generate real request links and tokens.
 - [ ] Send real check-in link draft or sandbox WhatsApp message.
-- [ ] Save nudge records in SQLite.
-- [ ] Add field report submission and attach it to the elder.
+- [x] Save nudge records in SQLite.
+- [x] Add field report submission and attach it to the elder.
+- [x] Match inbound WhatsApp relative replies to elder field-report requests.
 
 ## Phase 5: Silence Detection
 

@@ -515,6 +515,15 @@ def add_checkin(
                 "UPDATE checkup_requests SET status = ?, completed_at = ? WHERE id = ?",
                 (status, now_iso(), request_id),
             )
+            request = conn.execute(
+                "SELECT related_nudge_id FROM checkup_requests WHERE id = ?",
+                (request_id,),
+            ).fetchone()
+            if request and request["related_nudge_id"]:
+                conn.execute(
+                    "UPDATE nudges SET responded_at = ?, checkin_id = ? WHERE id = ?",
+                    (now_iso(), checkin_id, request["related_nudge_id"]),
+                )
     if concern_level is not None:
         maybe_create_concern_alert(member_id, concern_level)
     elif analysis_status == "needs_review":

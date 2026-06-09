@@ -161,15 +161,30 @@ def receive_whatsapp_reply(sender: str, body: str) -> dict:
 
     request = db.one(
         """
-        SELECT token
-        FROM checkup_requests
-        WHERE member_id = ?
-          AND status IN ('pending', 'sent', 'processing')
-          AND completed_at IS NULL
-        ORDER BY created_at DESC
+        SELECT r.token, r.request_type, r.member_id
+        FROM checkup_requests r
+        LEFT JOIN nudges n ON n.id = r.related_nudge_id
+        WHERE r.status IN ('pending', 'sent', 'processing')
+          AND r.completed_at IS NULL
+          AND (
+            r.member_id = ?
+            OR (r.request_type = 'field_report' AND n.contact_id = ?)
+          )
+        ORDER BY
+          CASE
+            WHEN r.request_type = 'field_report' AND n.contact_id = ? THEN 0
+            WHEN r.member_id = ? THEN 1
+            ELSE 2
+          END,
+          CASE r.priority
+            WHEN 'red' THEN 0
+            WHEN 'amber' THEN 1
+            ELSE 2
+          END,
+          r.created_at DESC
         LIMIT 1
         """,
-        (member["id"],),
+        (member["id"], member["id"], member["id"], member["id"]),
     )
     if not request:
         return {"ok": True, "message_id": message_id, "status": "matched_no_open_request", "member_id": member["id"]}
@@ -181,13 +196,15 @@ def receive_whatsapp_reply(sender: str, body: str) -> dict:
         text=body,
         language=member.get("language") or "twi",
         input_type="text",
-        source="self",
+        source="field_report" if request["request_type"] == "field_report" else "self",
     )
     return {
         "ok": True,
         "message_id": message_id,
         "status": "processed",
         "member_id": member["id"],
+        "request_member_id": request["member_id"],
+        "request_type": request["request_type"],
         "request_token": request["token"],
         "pipeline": result,
     }

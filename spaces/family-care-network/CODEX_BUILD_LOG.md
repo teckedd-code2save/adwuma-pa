@@ -20,6 +20,7 @@ This project was implemented with OpenAI Codex as the coding agent from the prod
 14. Validated Modal translation with `ninte/twi-en-nllb-v2` on a real Twi phrase.
 15. Validated Modal Qwen structured analysis with `Qwen/Qwen2.5-7B-Instruct` returning strict concern JSON.
 16. Validated Modal Akan TTS with `facebook/mms-tts-aka`, then stopped Modal with zero active tasks.
+17. Fixed inbound WhatsApp routing so a relative's reply can close an elder field-report request and mark the nudge responded.
 
 ## Codex Role
 
@@ -27,4 +28,4 @@ Codex translated the product spec into working Hugging Face Spaces, wrote and pa
 
 ## Current Next Step
 
-The next engineering step is one real ASR audio validation, then final end-to-end flow testing through a tokenized check-in and relative closure loop.
+The next engineering step is one real ASR audio validation, then final end-to-end testing with live WhatsApp delivery when the sandbox is ready.
