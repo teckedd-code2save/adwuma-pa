@@ -102,7 +102,16 @@ modal run finetune/finetune_mms_twi.py \
   --output-repo teckedd/mms-akan-ani-kese-v1 \
   --max-train-samples 12000 \
   --max-eval-samples 1200 \
+  --include-youversion \
+  --youversion-mode eval \
+  --max-youversion-samples 200 \
   --num-train-epochs 3 \
+  --learning-rate 3e-5 \
+  --warmup-ratio 0.1 \
+  --eval-steps 250 \
+  --save-steps 250 \
+  --early-stopping-patience 2 \
+  --min-wer-delta 0.005 \
   --push-to-hub
 ```
 
@@ -117,6 +126,8 @@ Cost rules:
 - Run the 128/32 smoke job first.
 - Stop if preprocessing, labels, or WER evaluation fails.
 - Do not run the full 12k/1.2k job until the smoke job finishes cleanly.
+- Do not push a trained adapter unless primary Twi WER beats the base MMS adapter gate.
+- Keep YouVersion as a separate robustness eval unless a later experiment proves it helps training.
 - Stop the fine-tune app after any run:
 
 ```bash

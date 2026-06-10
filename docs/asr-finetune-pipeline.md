@@ -6,13 +6,16 @@ This pipeline is for improving Akan/Twi speech recognition without burning Modal
 
 Produce the best practical WER improvement for Ani Kɛse family check-ins while preserving honest fallback behavior. If a transcript is weak, the product should still mark the response `needs_review` rather than feeding bad text into concern scoring.
 
+The training harness is baseline-gated. It will not push a model to Hub unless the trained adapter improves primary Twi WER over the base MMS adapter by at least `--min-wer-delta`.
+
 ## Current Training Target
 
 - Base model: `facebook/mms-1b-all`
 - MMS adapter language: `aka`
 - Output repo: `teckedd/mms-akan-ani-kese-v1`
-- Primary metric: normalized WER
+- Primary metric: normalized WER on the held-out GhanaNLP Twi split
 - Secondary metric: normalized CER
+- Robustness metric: separate YouVersion Akan WER/CER, never used for checkpoint selection
 
 `aka` is used because MMS ASR rejected `twi` in earlier tests and accepted Akan as `aka`.
 
@@ -45,7 +48,9 @@ Produce the best practical WER improvement for Ani Kɛse family check-ins while 
 - Filter tiny clips and very long clips before training.
 - Keep domain mix controlled. Family-care check-ins should dominate.
 - Run a small smoke job before a full paid job.
-- Compare against the baseline model on the exact same eval split.
+- Compare against the baseline model on the exact same primary eval split.
+- Keep supplemental/domain-shift evals separate from the primary model-selection metric.
+- Do not push if primary WER does not beat the baseline gate.
 - Keep low-confidence ASR as `needs_review` in the product.
 
 ## Run Stages
@@ -57,17 +62,20 @@ Purpose: confirm dataset loading, audio casting, labels, collator, baseline eval
 ```bash
 modal run finetune/finetune_mms_twi.py \
   --output-repo teckedd/mms-akan-ani-kese-v1 \
-  --max-train-samples 128 \
-  --max-eval-samples 32 \
-  --num-train-epochs 1
+  --max-train-samples 256 \
+  --max-eval-samples 64 \
+  --num-train-epochs 1 \
+  --eval-steps 25 \
+  --save-steps 25
 ```
 
 Expected output:
 
-- `baseline_wer`
-- `baseline_cer`
-- `eval_wer`
-- `eval_cer`
+- `baseline_primary_wer`
+- `baseline_primary_cer`
+- `final_primary_wer`
+- `final_primary_cer`
+- sample baseline/final predictions
 - no Hub push
 
 ### 2. Supplemental Eval Smoke
@@ -77,12 +85,14 @@ Purpose: verify the model can evaluate against YouVersion Akan without mixing th
 ```bash
 modal run finetune/finetune_mms_twi.py \
   --output-repo teckedd/mms-akan-ani-kese-v1 \
-  --max-train-samples 128 \
-  --max-eval-samples 32 \
+  --max-train-samples 256 \
+  --max-eval-samples 64 \
   --include-youversion \
   --youversion-mode eval \
   --max-youversion-samples 200 \
-  --num-train-epochs 1
+  --num-train-epochs 1 \
+  --eval-steps 25 \
+  --save-steps 25
 ```
 
 ### 3. Full Cost-Capped Run
@@ -100,7 +110,12 @@ modal run finetune/finetune_mms_twi.py \
   --num-train-epochs 3 \
   --per-device-batch-size 4 \
   --gradient-accumulation-steps 4 \
-  --learning-rate 1e-4 \
+  --learning-rate 3e-5 \
+  --warmup-ratio 0.1 \
+  --eval-steps 250 \
+  --save-steps 250 \
+  --early-stopping-patience 2 \
+  --min-wer-delta 0.005 \
   --push-to-hub
 ```
 
@@ -111,8 +126,9 @@ Do not use `youversion-mode train` unless the eval-only path shows value.
 The fine-tune is accepted only if:
 
 - The smoke job finishes with valid WER/CER.
-- Full-run normalized WER improves over baseline on the same eval split.
+- Full-run normalized WER improves over baseline on the same primary eval split.
 - CER does not regress materially when WER improves.
+- YouVersion robustness WER/CER is reported separately and does not hide primary regression.
 - The model can be loaded from Hub by the ASR eval Space.
 - A real voice sample in the testing Space produces a usable transcript.
 
