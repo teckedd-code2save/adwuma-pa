@@ -34,31 +34,6 @@ def dashboard_rows() -> list[dict]:
 
 
 def with_status(member: dict) -> dict:
-    if (member.get("family_role") or "relative") != "elder":
-        contact = route_contact(member["id"])
-        care_route = "No care contact assigned"
-        if contact:
-            role = (contact.get("care_role") or "family").replace("_", " ")
-            care_route = f"{contact['name']} ({role})"
-        return {
-            "Name": member["name"],
-            "City": member.get("location_city") or "",
-            "Region": member.get("location_region") or "",
-            "Language": member.get("language") or "",
-            "Role": member.get("family_role") or "relative",
-            "Coordinator": "Yes" if member.get("is_coordinator") else "No",
-            "Status": "Support",
-            "Concern": "",
-            "Minutes silent": "",
-            "Reminder min": member.get("reminder_minutes") or 10080,
-            "Amber min": member.get("escalation_minutes_amber") or 14400,
-            "Red min": member.get("escalation_minutes_red") or 20160,
-            "Last summary": "Not monitored as elder",
-            "Analysis": member.get("last_analysis_status") or "none",
-            "Next action": "Available for coordination or follow-up",
-            "Care route": care_route,
-            "Token": member.get("checkin_url_token") or "",
-        }
     concern = member.get("last_concern") or 0
     minutes_silent = minutes_since(member.get("last_checkin_at"))
     reminder_minutes = member.get("reminder_minutes") or 10080
@@ -66,13 +41,13 @@ def with_status(member: dict) -> dict:
     red_minutes = member.get("escalation_minutes_red") or 20160
     if concern >= 7 or minutes_silent >= red_minutes:
         status = "Red"
-        next_action = "Call elder and nudge first-party contact"
+        next_action = "Call this person and nudge the assigned relative"
     elif concern >= 4 or minutes_silent >= amber_minutes:
         status = "Amber"
-        next_action = "Ask nearby relative to check in"
+        next_action = "Ask the assigned relative to check in"
     elif minutes_silent >= reminder_minutes:
         status = "Reminder"
-        next_action = "Send elder a check-in reminder link"
+        next_action = "Send this person a check-in reminder link"
     else:
         status = "Green"
         next_action = "Normal schedule"
@@ -200,7 +175,6 @@ def scan_silence() -> list[str]:
           SELECT id FROM checkins WHERE member_id = m.id ORDER BY submitted_at DESC LIMIT 1
         )
         WHERE m.active = 1
-          AND COALESCE(m.family_role, 'relative') = 'elder'
         ORDER BY m.name ASC
         """
     )
@@ -284,5 +258,5 @@ def scan_silence() -> list[str]:
             )
             actions.append(f"REMINDER {member['name']}: alert {alert_id}. Request {checkin_link_for_request(request_id)} queued.")
     if not actions:
-        actions.append("No silence escalations. All active elders are inside their configured thresholds.")
+        actions.append("No silence escalations. All active family members are inside their configured thresholds.")
     return actions

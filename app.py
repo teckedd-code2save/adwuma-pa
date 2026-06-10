@@ -897,19 +897,19 @@ def family_overview_html(limit=12):
 
 
 def care_routes_html(limit=10):
-    rows = [row for row in dashboard_rows() if row.get("Role") == "elder"][:limit]
+    rows = dashboard_rows()[:limit]
     if not rows:
-        return '<div class="ap-empty">No elders registered. Add an elder, then add affiliations to relatives who can respond.</div>'
+        return '<div class="ap-empty">No family members registered. Add members, then add affiliations to relatives who can respond.</div>'
     items = []
     for row in rows:
-        member = db.one("SELECT id FROM members WHERE name = ? AND family_role = 'elder' AND active = 1 LIMIT 1", (row["Name"],))
+        member = db.one("SELECT id FROM members WHERE name = ? AND active = 1 LIMIT 1", (row["Name"],))
         contact = route_contact(member["id"]) if member else None
         if contact:
             role = (contact.get("care_role") or "family").replace("_", " ")
             note = f"Valid route: {esc(row['Name'])} -> {esc(contact['name'])} ({esc(role)}, priority {esc(contact.get('affiliation_priority') or 1)})"
             state = "valid"
         else:
-            note = "Missing route: add an affiliation where this elder is the person being cared for and the relative has a care role such as first-party contact or nearby relative."
+            note = "Missing route: add an affiliation where this person is being checked on and the related family member has a care role such as first-party contact or nearby relative."
             state = "needs route"
         items.append(
             f"""
@@ -1023,7 +1023,7 @@ def friendly_reason(reason):
 
 def status_cards_html():
     rows = dashboard_rows()
-    counts = {status: 0 for status in ["Green", "Reminder", "Amber", "Red", "Support"]}
+    counts = {status: 0 for status in ["Green", "Reminder", "Amber", "Red"]}
     for row in rows:
         counts[row["Status"]] = counts.get(row["Status"], 0) + 1
     return f"""
@@ -1032,7 +1032,6 @@ def status_cards_html():
   <div class="ap-status-card ap-reminder"><div class="ap-status-label">Reminder</div><div class="ap-status-value">{counts.get("Reminder", 0)}</div></div>
   <div class="ap-status-card ap-amber"><div class="ap-status-label">Amber</div><div class="ap-status-value">{counts.get("Amber", 0)}</div></div>
   <div class="ap-status-card ap-red"><div class="ap-status-label">Red</div><div class="ap-status-value">{counts.get("Red", 0)}</div></div>
-  <div class="ap-status-card"><div class="ap-status-label">Support</div><div class="ap-status-value">{counts.get("Support", 0)}</div></div>
 </div>
 """
 
@@ -2010,12 +2009,12 @@ def build_app():
                 care_routes = gr.HTML(care_routes_html())
                 gr.HTML('<div class="ap-section-title">Alerts and reviews</div>')
                 alerts = gr.HTML(alert_overview_html())
-                gr.HTML('<div class="ap-section-title">Close confirmed follow-up</div>')
-                with gr.Row():
-                    resolved_by = gr.Textbox(label="Confirmed by", value="Coordinator")
-                    resolution_notes = gr.Textbox(label="What happened", value="Relative checked in and confirmed next action.")
-                    resolve_btn = gr.Button("Close most urgent alert")
-                resolve_output = gr.Textbox(label="Closure result", interactive=False)
+                with gr.Accordion("Resolve an alert", open=False):
+                    with gr.Row():
+                        resolved_by = gr.Textbox(label="Confirmed by", value="")
+                        resolution_notes = gr.Textbox(label="What happened", value="")
+                        resolve_btn = gr.Button("Close most urgent alert")
+                    resolve_output = gr.Textbox(label="Closure result", interactive=False)
 
             with gr.Tab("Family Setup"):
                 member_storage = gr.HTML(storage_status_html())
