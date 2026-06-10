@@ -1,8 +1,8 @@
-# Adwuma Pa Submission Plan
+# Ani Kɛse Submission Plan
 
 ## One-Line Pitch
 
-Adwuma Pa is a small AI family care network that checks on Ghanaian elders in Twi, Fante, or English, detects concern or silence, and routes follow-up to the nearest relative until the loop is closed.
+Ani Kɛse is a small AI family care network that checks on Ghanaian elders in Twi, Fante, or English, detects concern or silence, and routes follow-up to the nearest relative until the loop is closed.
 
 ## Track
 
@@ -26,11 +26,11 @@ Backyard AI.
 4. Show the red alert and concern JSON.
 5. Open Relay and draft the WhatsApp nudge to Ama, the nearest relative.
 6. Resolve the loop with a field report.
-7. Close: "Adwuma Pa means Good Work. Small AI, routed to real family action."
+7. Close: "Ani Kɛse means Big Eye. Small AI, routed to real family action."
 
 ## Social Post Draft
 
-I built Adwuma Pa for the Build Small Hackathon: a small-model family care network for Ghanaian elders.
+I built Ani Kɛse for the Build Small Hackathon: a small-model family care network for Ghanaian elders.
 
 It accepts Twi/Fante/English check-ins, scores health and isolation concern, watches for silence, and nudges the nearest relative until the care loop is closed.
 

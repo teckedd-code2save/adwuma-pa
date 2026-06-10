@@ -99,7 +99,7 @@ For a real but still cost-capped run:
 
 ```bash
 modal run finetune/finetune_mms_twi.py \
-  --output-repo teckedd/mms-twi-adwuma-pa-v1 \
+  --output-repo teckedd/mms-akan-ani-kese-v1 \
   --max-train-samples 12000 \
   --max-eval-samples 1200 \
   --num-train-epochs 3 \
@@ -120,7 +120,7 @@ Cost rules:
 - Stop the fine-tune app after any run:
 
 ```bash
-modal app stop adwuma-pa-finetune --yes
+modal app stop ani-kese-finetune --yes
 ```
 
 Supplemental Akan ASR dataset:
@@ -192,8 +192,8 @@ modal deploy modal_backend/cron.py
 Stop the inference app and cron app after validation/demo:
 
 ```bash
-modal app stop adwuma-pa-inference --yes
-modal app stop adwuma-pa-cron --yes
+modal app stop ani-kese-inference --yes
+modal app stop ani-kese-cron --yes
 ```
 
 Then remove or blank the HF Space variable if you want the public app to return `needs_review` instead of calling Modal:
@@ -217,7 +217,7 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 2026-06-09:
 
 - Modal auth confirmed for workspace `createdliving1000`.
-- Deployed `adwuma-pa-inference`.
+- Deployed `ani-kese-inference`.
 - API base URL: `https://createdliving1000--api.modal.run`.
 - `/health` returned HTTP 200.
 - `/translate` returned HTTP 200 for `Me ho ye, na me nsa aka aduan. Meda wo ase.`
@@ -228,7 +228,7 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 
 2026-06-09 Qwen validation:
 
-- Redeployed `adwuma-pa-inference`.
+- Redeployed `ani-kese-inference`.
 - API base URL: `https://createdliving1000--api.modal.run`.
 - `/health` returned HTTP 200.
 - `/analyze` returned HTTP 200 for a translated routine Twi check-in.
@@ -242,7 +242,7 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 
 2026-06-09 TTS validation:
 
-- Redeployed `adwuma-pa-inference`.
+- Redeployed `ani-kese-inference`.
 - API base URL: `https://createdliving1000--api.modal.run`.
 - `/speak` returned HTTP 200 for `Me pe se me hwe wo ho.`
 - TTS model: `facebook/mms-tts-aka`.

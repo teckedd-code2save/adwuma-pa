@@ -643,7 +643,7 @@ def create_checkup_request(
     reason_detail: str,
     request_type: str = "elder_checkin",
     channel: str = "web",
-    requester: str = "Adwuma Pa autopilot",
+    requester: str = "Ani Kɛse autopilot",
     priority: str = "routine",
     related_alert_id: str | None = None,
     related_nudge_id: str | None = None,

@@ -1,7 +1,7 @@
 {
   "name": "build-small-hackathon",
   "version": "1.0.0",
-  "description": "Adwuma Pa is a small-model family care network for Ghanaian elders. It collects text or voice check-ins in Twi, Fante, or English, scores health and social concern, routes follow-up to nearby relatives, and gives the family coordinator a live Gradio dashboard.",
+  "description": "Ani Kɛse is a small-model family care network for Ghanaian elders. It collects text or voice check-ins in Twi, Fante, or English, scores health and social concern, routes follow-up to nearby relatives, and gives the family coordinator a live Gradio dashboard.",
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"

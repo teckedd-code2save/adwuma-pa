@@ -43,7 +43,7 @@ AFFILIATION_HEADERS = ["Subject", "Related", "Relationship", "Care role", "Prior
 OUTBOUND_HEADERS = ["Created", "Recipient", "Channel", "Status", "SID", "Error", "Body"]
 ASR_MODEL_CHOICES = [
     ("MMS-1B-all (Akan)", "primary"),
-    ("Adwuma Pa Akan Whisper fine-tune", "fine_tuned"),
+    ("Ani Kɛse Akan Whisper fine-tune", "fine_tuned"),
     ("GiftMark Akan Whisper", "fallback"),
 ]
 ROLE_CHOICES = [
@@ -810,7 +810,7 @@ def demo_story_html():
   <div class="ap-story">
     <h2>Autopilot keeps the family loop moving.</h2>
     <p>
-      A coordinator registers the family, Adwuma Pa detects who is due or silent,
+      A coordinator registers the family, Ani Kɛse detects who is due or silent,
       sends a secure check-in, processes the response, routes a relative when needed,
       and keeps the loop open until someone confirms the next action.
     </p>
@@ -1468,7 +1468,7 @@ def request_context_markdown(request):
     return f"""
 ### Response for {request['member_name']}
 
-Requested by: **{request.get('requester') or 'Adwuma Pa'}**  
+Requested by: **{request.get('requester') or 'Ani Kɛse'}**  
 Expected responder: **{reporter}**  
 Reason: **{friendly_reason(request['reason_code'])}**  
 Details: {request.get('reason_detail') or 'No extra details.'}  
@@ -1684,7 +1684,7 @@ def public_checkin_page(token: str, request: dict, message: str = "") -> str:
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Adwuma Pa Check-in</title>
+  <title>Ani Kɛse Check-in</title>
   <style>
     body {{
       background: #e2e8f0;
@@ -1786,7 +1786,7 @@ def public_checkin_page(token: str, request: dict, message: str = "") -> str:
 <body>
   <main>
     <header>
-      <h1>Adwuma Pa</h1>
+      <h1>Ani Kɛse</h1>
       <p>Secure family check-in for {html.escape(request["member_name"])}.</p>
     </header>
     <section>
@@ -1892,7 +1892,7 @@ def install_webhook_routes(server):
 
     @server.get("/twilio/health")
     async def twilio_health():
-        return {"ok": True, "service": "adwuma-pa-twilio"}
+        return {"ok": True, "service": "ani-kese-twilio"}
 
     @server.get("/debug/storage")
     async def debug_storage():
@@ -2078,14 +2078,14 @@ def build_tts_prompt(member_id, prompt_type, language):
     name = member["name"] if member else "Opanyin"
     if language == "eng":
         templates = {
-            "reminder": f"Hello {name}. This is Adwuma Pa checking in. Please send a short update so your family knows how you are doing.",
-            "call_greeting": f"Hello {name}. This is Adwuma Pa calling for your family. How are you feeling today?",
+            "reminder": f"Hello {name}. This is Ani Kɛse checking in. Please send a short update so your family knows how you are doing.",
+            "call_greeting": f"Hello {name}. This is Ani Kɛse calling for your family. How are you feeling today?",
             "call_close": "Thank you. Your family will receive this update. We will follow up if anyone needs to check on you.",
         }
     else:
         templates = {
-            "reminder": f"{name}, Adwuma Pa re bisa wo ho asɛm. Yɛsrɛ wo, kyerɛw anaa ka sɛnea wo ho te.",
-            "call_greeting": f"{name}, Adwuma Pa na ɛrefrɛ wo ama abusua no. Ɛnnɛ wo ho te sɛn?",
+            "reminder": f"{name}, Ani Kɛse re bisa wo ho asɛm. Yɛsrɛ wo, kyerɛw anaa ka sɛnea wo ho te.",
+            "call_greeting": f"{name}, Ani Kɛse na ɛrefrɛ wo ama abusua no. Ɛnnɛ wo ho te sɛn?",
             "call_close": "Meda wo ase. Yɛde wo nkra bɛkɔ ama abusua no, na sɛ ɛhia a obi bɛba abɛhwɛ wo.",
         }
     return templates.get(prompt_type, templates["reminder"])
@@ -2115,11 +2115,11 @@ def tts_audio_from_modal(data):
 
 def build_app():
     db.init_db()
-    with gr.Blocks(title="Adwuma Pa - Family Care Network") as demo:
+    with gr.Blocks(title="Ani Kɛse - Family Care Network") as demo:
         gr.HTML(
             """
             <div class="ap-header">
-              <div class="ap-title">Adwuma Pa</div>
+              <div class="ap-title">Ani Kɛse</div>
               <div class="ap-subtitle">
                 A small AI care network for Ghanaian families: multilingual check-ins, concern scoring,
                 silence detection, nearest-relative nudges, and loop closure for elders who may not ask for help.

@@ -12,7 +12,7 @@ def run_asr(audio, language_label, model_label):
     language = ASR_CONFIG["supported_languages"][language_label]
     model_key = {
         "MMS-1B-all": "primary",
-        "Adwuma Pa fine-tune": "fine_tuned",
+        "Ani Kɛse fine-tune": "fine_tuned",
         "GiftMark Akan Whisper": "fallback",
     }[model_label]
     result = transcribe(audio, language, model_key)
@@ -27,10 +27,10 @@ def run_asr(audio, language_label, model_label):
 
 
 def build_eval():
-    with gr.Blocks(title="Adwuma Pa ASR Eval") as demo:
+    with gr.Blocks(title="Ani Kɛse ASR Eval") as demo:
         gr.Markdown(
             """
-# Adwuma Pa ASR Eval
+# Ani Kɛse ASR Eval
 
 Record Twi, Fante, or Ghanaian English samples and compare small ASR models before choosing the production path.
             """
@@ -40,7 +40,7 @@ Record Twi, Fante, or Ghanaian English samples and compare small ASR models befo
             with gr.Column():
                 language = gr.Dropdown(list(ASR_CONFIG["supported_languages"].keys()), value="Twi", label="Language")
                 model = gr.Dropdown(
-                    ["MMS-1B-all", "Adwuma Pa fine-tune", "GiftMark Akan Whisper"],
+                    ["MMS-1B-all", "Ani Kɛse fine-tune", "GiftMark Akan Whisper"],
                     value="MMS-1B-all",
                     label="Model",
                 )

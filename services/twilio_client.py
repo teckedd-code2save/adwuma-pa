@@ -131,12 +131,12 @@ def request_message_body(request: dict) -> str:
     reason = (request.get("reason_code") or "check-in").replace("_", " ")
     if request.get("request_type") == "field_report":
         return (
-            f"Adwuma Pa needs your help checking on {request['elder_name']}. "
+            f"Ani Kɛse needs your help checking on {request['elder_name']}. "
             f"Reason: {reason}. "
             f"Please send a short family report here: {checkin_url(request['token'])}"
         )
     return (
-        f"Adwuma Pa check-in for {request['elder_name']}. "
+        f"Ani Kɛse check-in for {request['elder_name']}. "
         f"Reason: {reason}. "
         f"Please respond here: {checkin_url(request['token'])}"
     )

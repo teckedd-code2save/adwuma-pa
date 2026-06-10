@@ -17,7 +17,7 @@ MODEL_REGISTRY = {
         "parameter_count": "1B",
         "notes": "Native multilingual ASR with Twi target language and Fante/Akan coverage.",
     },
-    "Adwuma Pa Akan Whisper fine-tune": {
+    "Ani Kɛse Akan Whisper fine-tune": {
         "model_id": "teckedd/whisper_small-waxal_akan-asr-v1",
         "type": "whisper",
         "parameter_count": "0.2B",
@@ -225,10 +225,10 @@ def record_vote(language: str, model_name: str, note: str) -> tuple[str, str, st
     return "Vote saved. Thanks for helping evaluate Akan ASR.", vote_summary_markdown(), recent_votes_markdown()
 
 
-with gr.Blocks(title="Adwuma Pa ASR Eval") as demo:
+with gr.Blocks(title="Ani Kɛse ASR Eval") as demo:
     gr.Markdown(
         """
-# Adwuma Pa ASR Eval
+# Ani Kɛse ASR Eval
 
 First step for the hackathon build: test Twi and Fante speech recognition on real family recordings before wiring ASR into the main care app.
         """

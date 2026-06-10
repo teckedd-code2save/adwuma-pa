@@ -1,5 +1,5 @@
 ---
-title: Adwuma Pa
+title: Ani Kɛse
 emoji: 🫶
 colorFrom: green
 colorTo: yellow
@@ -19,9 +19,9 @@ models:
   - GiftMark/akan-whisper-model
 ---
 
-# Adwuma Pa
+# Ani Kɛse
 
-Adwuma Pa is a small-model family care network for Ghanaian elders. It creates real checkup requests, collects text or voice responses in Twi, Fante, or English, translates Akan-family responses to English, analyzes concern with Qwen, routes follow-up to nearby relatives, and gives the family coordinator a live Gradio dashboard.
+Ani Kɛse is a small-model family care network for Ghanaian elders. It creates real checkup requests, collects text or voice responses in Twi, Fante, or English, translates Akan-family responses to English, analyzes concern with Qwen, routes follow-up to nearby relatives, and gives the family coordinator a live Gradio dashboard.
 
 Built for the Build Small Hackathon, Backyard AI track.
 

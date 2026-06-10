@@ -8,7 +8,7 @@ from typing import Any
 import modal
 
 
-APP_NAME = "adwuma-pa-inference"
+APP_NAME = "ani-kese-inference"
 
 web_image = modal.Image.debian_slim(python_version="3.11").pip_install("fastapi[standard]")
 
@@ -44,7 +44,7 @@ GPU_COST_LIMITS = dict(
 def api():
     from fastapi import FastAPI
 
-    web = FastAPI(title="Adwuma Pa Modal Inference")
+    web = FastAPI(title="Ani Kɛse Modal Inference")
 
     @web.get("/health")
     def health() -> dict[str, Any]:

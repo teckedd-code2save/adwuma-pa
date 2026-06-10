@@ -1,11 +1,11 @@
-# Adwuma Pa Hackathon Todo
+# Ani Kɛse Hackathon Todo
 
 Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 
 ## Current Status
 
 - ASR eval Space is live: `build-small-hackathon/family-care-asr-eval`.
-- Community voting was added to compare MMS, the Adwuma Pa fine-tune, and GiftMark Akan Whisper.
+- Community voting was added to compare MMS, the Ani Kɛse fine-tune, and GiftMark Akan Whisper.
 - Early ASR finding: the three models are comparable; MMS uses `aka` for Akan rather than separate `twi` or `fat` adapters.
 - Main app Space is live: `build-small-hackathon/family-care-network`.
 - Main app now starts from real data only: coordinator dashboard, tokenized checkup requests, request-backed responses, alert feed, nudge draft, loop resolution, and configurable silence escalation policy.
@@ -30,7 +30,7 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 - [x] Create `family-care-asr-eval` Space.
 - [x] Add microphone/upload input.
 - [x] Add language selector for Twi, Fante, Ghanaian English.
-- [x] Add model selector for MMS, Adwuma Pa fine-tune, and GiftMark.
+- [x] Add model selector for MMS, Ani Kɛse fine-tune, and GiftMark.
 - [x] Fix MMS language code to use `aka`.
 - [x] Add community voting.
 - [ ] Collect at least 20 community votes across Twi and Fante.

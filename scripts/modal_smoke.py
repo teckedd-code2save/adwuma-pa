@@ -10,7 +10,7 @@ import requests
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Low-cost smoke checks for the Adwuma Pa Modal API.")
+    parser = argparse.ArgumentParser(description="Low-cost smoke checks for the Ani Kɛse Modal API.")
     parser.add_argument("--base-url", required=True, help="Modal ASGI app base URL.")
     parser.add_argument("--health", action="store_true", help="Check /health.")
     parser.add_argument("--translate", help="Translate one Twi/Fante/Akan text sample.")

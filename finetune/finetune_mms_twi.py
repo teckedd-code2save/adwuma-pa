@@ -8,7 +8,7 @@ This script only runs when called explicitly:
 For a real run, pass a Hub repo and enable push:
 
     modal run finetune/finetune_mms_twi.py \
-      --output-repo teckedd/mms-twi-adwuma-pa-v1 \
+      --output-repo teckedd/mms-akan-ani-kese-v1 \
       --max-train-samples 12000 \
       --max-eval-samples 1200 \
       --num-train-epochs 3 \
@@ -29,13 +29,13 @@ from __future__ import annotations
 import modal
 
 
-APP_NAME = "adwuma-pa-finetune"
+APP_NAME = "ani-kese-finetune"
 DATASET_ID = "ghananlpcommunity/twi-speech-text-multispeaker-16k"
 DATASET_CONFIG = "default"
 YOUVERSION_DATASET_ID = "AfriSpeech/youversion-african-speech"
 YOUVERSION_CONFIG = "Akan_aka"
 BASE_MODEL = "facebook/mms-1b-all"
-TARGET_LANG = "twi"
+TARGET_LANG = "aka"
 
 
 image = (
@@ -56,7 +56,7 @@ image = (
 )
 
 app = modal.App(APP_NAME)
-cache_volume = modal.Volume.from_name("adwuma-pa-hf-cache", create_if_missing=True)
+cache_volume = modal.Volume.from_name("ani-kese-hf-cache", create_if_missing=True)
 
 
 @app.function(
@@ -82,6 +82,7 @@ def finetune(
 ) -> dict:
     import os
     import re
+    import unicodedata
     from dataclasses import dataclass
     from typing import Any
 
@@ -105,7 +106,12 @@ def finetune(
         raise ValueError("youversion_mode must be 'train' or 'eval'")
 
     def normalize_text(value: str) -> str:
-        return re.sub(r"\s+", " ", (value or "").strip())
+        text = unicodedata.normalize("NFKC", value or "").lower()
+        text = re.sub(r"[\u2018\u2019`´]", "'", text)
+        text = re.sub(r"[\u201c\u201d]", '"', text)
+        text = re.sub(r"[^a-zà-ÿɔɛŋɲáéíóúýàèìòùâêîôûäëïöüãẽĩõũñç'\\s]", " ", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        return text
 
     print(f"Loading {DATASET_ID} ({DATASET_CONFIG}/train)")
     raw = load_dataset(DATASET_ID, DATASET_CONFIG, split="train")
@@ -203,13 +209,17 @@ def finetune(
             return batch
 
     wer_metric = evaluate.load("wer")
+    cer_metric = evaluate.load("cer")
 
     def compute_metrics(pred):
         pred_ids = np.argmax(pred.predictions, axis=-1)
         pred.label_ids[pred.label_ids == -100] = processor.tokenizer.pad_token_id
-        pred_str = processor.batch_decode(pred_ids)
-        label_str = processor.batch_decode(pred.label_ids, group_tokens=False)
-        return {"wer": wer_metric.compute(predictions=pred_str, references=label_str)}
+        pred_str = [normalize_text(text) for text in processor.batch_decode(pred_ids)]
+        label_str = [normalize_text(text) for text in processor.batch_decode(pred.label_ids, group_tokens=False)]
+        return {
+            "wer": wer_metric.compute(predictions=pred_str, references=label_str),
+            "cer": cer_metric.compute(predictions=pred_str, references=label_str),
+        }
 
     training_args = TrainingArguments(
         output_dir="/cache/mms-twi-checkpoints",
@@ -220,12 +230,16 @@ def finetune(
         learning_rate=learning_rate,
         warmup_ratio=0.05,
         fp16=torch.cuda.is_available(),
+        fp16_full_eval=torch.cuda.is_available(),
         eval_strategy="epoch",
         save_strategy="epoch",
         save_total_limit=2,
         load_best_model_at_end=True,
         metric_for_best_model="wer",
         greater_is_better=False,
+        gradient_checkpointing=True,
+        group_by_length=True,
+        dataloader_num_workers=2,
         logging_steps=25,
         report_to="none",
         push_to_hub=push_to_hub,
@@ -243,13 +257,14 @@ def finetune(
         compute_metrics=compute_metrics,
     )
 
+    baseline_metrics = trainer.evaluate(metric_key_prefix="baseline")
     train_result = trainer.train()
-    eval_metrics = trainer.evaluate()
+    eval_metrics = trainer.evaluate(metric_key_prefix="eval")
 
     if push_to_hub:
         trainer.push_to_hub(
-            commit_message="Fine-tune MMS Twi ASR for Adwuma Pa",
-            tags=["adwuma-pa", "akan", "asr", "ghana", "mms", "twi"],
+            commit_message="Fine-tune MMS Twi ASR for Ani Kɛse",
+            tags=["ani-kese", "akan", "asr", "ghana", "mms", "twi"],
         )
         processor.push_to_hub(output_repo, token=hf_token)
 
@@ -263,6 +278,7 @@ def finetune(
         "youversion_included": include_youversion,
         "youversion_mode": youversion_mode if include_youversion else None,
         "youversion_rows": youversion_rows,
+        "baseline_metrics": baseline_metrics,
         "train_metrics": train_result.metrics,
         "eval_metrics": eval_metrics,
         "pushed_to_hub": push_to_hub,

@@ -167,7 +167,7 @@ def simulate_nudge(elder_id: str) -> str:
     return (
         f"WhatsApp draft to {contact['name']} ({role}): Hi {contact['name']}, we have not heard from "
         f"{elder['name']} in {elder.get('location_city') or 'their town'} recently. Could you check on them today "
-        f"and report back through their Adwuma Pa link?"
+        f"and report back through their Ani Kɛse link?"
     )
 
 
@@ -223,7 +223,7 @@ def scan_silence() -> list[str]:
                     f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after red silence.",
                     request_type="field_report",
                     channel="whatsapp",
-                    requester="Adwuma Pa autopilot",
+                    requester="Ani Kɛse autopilot",
                     priority="red",
                     related_alert_id=alert_id,
                     related_nudge_id=nudge_id,
@@ -254,7 +254,7 @@ def scan_silence() -> list[str]:
                     f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after amber silence.",
                     request_type="field_report",
                     channel="whatsapp",
-                    requester="Adwuma Pa autopilot",
+                    requester="Ani Kɛse autopilot",
                     priority="amber",
                     related_alert_id=alert_id,
                     related_nudge_id=nudge_id,
@@ -272,7 +272,7 @@ def scan_silence() -> list[str]:
             request_id = db.create_checkup_request(
                 member["id"],
                 "reminder_silence",
-                f"We have not heard from {member['name']} for {silent_text}, so Adwuma Pa is sending a reminder.",
+                f"We have not heard from {member['name']} for {silent_text}, so Ani Kɛse is sending a reminder.",
                 channel="whatsapp",
                 priority="routine",
                 related_alert_id=alert_id,

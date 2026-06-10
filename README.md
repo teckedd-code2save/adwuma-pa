@@ -1,5 +1,5 @@
 ---
-title: Adwuma Pa
+title: Ani Kɛse
 emoji: 🫶
 colorFrom: green
 colorTo: yellow
@@ -19,9 +19,9 @@ models:
   - GiftMark/akan-whisper-model
 ---
 
-# Adwuma Pa
+# Ani Kɛse
 
-Adwuma Pa is a small-model family care network for Ghanaian elders. It creates real checkup requests, collects text or voice responses in Twi, Fante, or English, translates Akan-family responses to English, analyzes concern with Qwen, routes follow-up to nearby relatives, and gives the family coordinator a live Gradio dashboard.
+Ani Kɛse is a small-model family care network for Ghanaian elders. It creates real checkup requests, collects text or voice responses in Twi, Fante, or English, translates Akan-family responses to English, analyzes concern with Qwen, routes follow-up to nearby relatives, and gives the family coordinator a live Gradio dashboard.
 
 Built for the Build Small Hackathon, Backyard AI track.
 
@@ -71,5 +71,6 @@ For the ASR evaluation Space, set `app_file: asr_eval.py` in that Space README o
 - `modal_backend/adwuma_modal.py`: Modal endpoints for health, translation, ASR, Qwen analysis, and TTS.
 - `modal_backend/cron.py`: deploy-only-when-needed Modal cron skeleton.
 - `finetune/finetune_mms_twi.py`: cost-capped Modal harness for Twi MMS ASR fine-tuning on `ghananlpcommunity/twi-speech-text-multispeaker-16k`.
+- `docs/asr-finetune-pipeline.md`: complete ASR fine-tune, evaluation, push, cleanup, and testing-space pipeline.
 - `SUBMISSION.md`: demo script, social copy, and judging checklist.
 - `FIELD_NOTES.md`: report draft for the Field Notes badge.

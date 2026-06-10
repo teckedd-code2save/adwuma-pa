@@ -8,7 +8,7 @@ from services.relay import scan_silence
 from services import twilio_client
 
 
-def run_autopilot_scan(force: bool = False, actor: str = "Adwuma Pa autopilot") -> dict[str, Any]:
+def run_autopilot_scan(force: bool = False, actor: str = "Ani Kɛse autopilot") -> dict[str, Any]:
     db.init_db()
     settings = db.autopilot_settings()
     if not settings["enabled"] and not force:
@@ -58,7 +58,7 @@ def send_autopilot_whatsapp() -> list[str]:
         """
         SELECT id
         FROM checkup_requests
-        WHERE requester = 'Adwuma Pa autopilot'
+        WHERE requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
           AND channel = 'whatsapp'
           AND status = 'pending'
         ORDER BY
@@ -96,4 +96,3 @@ def autopilot_summary_html() -> str:
   <div><strong>Last actions:</strong> {action_count}</div>
 </div>
 """
-

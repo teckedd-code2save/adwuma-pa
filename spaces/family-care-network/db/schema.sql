@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS checkup_requests (
   id TEXT PRIMARY KEY,
   token TEXT NOT NULL UNIQUE,
   member_id TEXT NOT NULL REFERENCES members(id),
-  requester TEXT DEFAULT 'Adwuma Pa autopilot',
+  requester TEXT DEFAULT 'Ani Kɛse autopilot',
   request_type TEXT DEFAULT 'elder_checkin',
   reason_code TEXT NOT NULL,
   reason_detail TEXT,

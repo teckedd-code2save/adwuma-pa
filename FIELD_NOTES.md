@@ -1,6 +1,6 @@
 # Field Notes: Building Small AI For Ghanaian Family Care
 
-Adwuma Pa started from a specific family failure mode: an elder can become sick, nobody nearby knows, the coordinator is far away, and the group chat never turns concern into accountable action.
+Ani Kɛse started from a specific family failure mode: an elder can become sick, nobody nearby knows, the coordinator is far away, and the group chat never turns concern into accountable action.
 
 The product decision was to avoid a generic "elder care assistant" and build the smallest useful loop:
 

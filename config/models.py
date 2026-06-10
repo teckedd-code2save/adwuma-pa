@@ -6,7 +6,7 @@ ASR_CONFIG = {
         "parameters_b": 1.0,
     },
     "fine_tuned": {
-        "label": "Adwuma Pa Akan Whisper fine-tune",
+        "label": "Ani Kɛse Akan Whisper fine-tune",
         "model_id": "teckedd/whisper_small-waxal_akan-asr-v1",
         "type": "whisper",
         "parameters_b": 0.2,

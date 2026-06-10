@@ -1,5 +1,5 @@
 ---
-title: Adwuma Pa ASR Eval
+title: Ani Kɛse ASR Eval
 emoji: 🎙️
 colorFrom: green
 colorTo: yellow
@@ -11,9 +11,9 @@ license: apache-2.0
 short_description: Twi and Fante ASR comparison
 ---
 
-# Adwuma Pa ASR Eval
+# Ani Kɛse ASR Eval
 
-This Space is the first build step for Adwuma Pa. It tests small ASR models on real Twi, Fante, and Ghanaian English family recordings before choosing the production voice path.
+This Space is the first build step for Ani Kɛse. It tests small ASR models on real Twi, Fante, and Ghanaian English family recordings before choosing the production voice path.
 
 Community testers can vote for the model that best preserves the meaning of each sample. Rough WER is only shown when exact reference text is provided, so votes are useful when people can judge the transcript by ear.
 
