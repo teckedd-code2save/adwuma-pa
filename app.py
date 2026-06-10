@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import base64
 import html
+import io
 import json
 import os
 from urllib.parse import parse_qs
@@ -359,6 +361,21 @@ select {
 .ap-autopilot * {
   color: #0f172a !important;
 }
+input[type="checkbox"] {
+  accent-color: #047857 !important;
+  min-height: 18px !important;
+  min-width: 18px !important;
+}
+label:has(input[type="checkbox"]) {
+  border: 1px solid #64748b !important;
+  border-radius: 6px !important;
+  color: #0f172a !important;
+  padding: 8px 10px !important;
+}
+label:has(input[type="checkbox"]:checked) {
+  background: #dcfce7 !important;
+  border-color: #047857 !important;
+}
 .ap-section-title {
   color: #0f172a !important;
   font-size: 18px;
@@ -706,8 +723,13 @@ details[open] > summary {
 
 
 def refresh_dashboard():
+    settings = db.autopilot_settings()
     return (
         autopilot_summary_html(),
+        gr.Checkbox(value=settings["enabled"]),
+        gr.Number(value=settings["scan_interval_minutes"]),
+        gr.Checkbox(value=settings["send_whatsapp"]),
+        operations_status_html(),
         status_cards_html(),
         active_requests_html(),
         family_overview_html(),
@@ -758,6 +780,25 @@ def storage_status_html():
   <strong>Database:</strong> <code>{html.escape(status['db_path'])}</code><br>
   {html.escape(warning)}
 </div>
+"""
+
+
+def operations_status_html():
+    storage = db.storage_status()
+    modal_url = modal_client.modal_base_url()
+    modal_result = modal_client.modal_health()
+    modal_state = "online" if modal_result.ok else f"not ready: {modal_result.error}"
+    twilio_state = "configured" if twilio_client.configured() else "missing SID/token/from"
+    sender = twilio_client.configured_from() or "not set"
+    return f"""
+<section class="ap-autopilot">
+  <div><strong>Modal:</strong> {esc(modal_state)}</div>
+  <div><strong>Modal URL:</strong> {esc(modal_url or 'not configured')}</div>
+  <div><strong>Twilio:</strong> {esc(twilio_state)}</div>
+  <div><strong>WhatsApp sender:</strong> {esc(sender)}</div>
+  <div><strong>Storage:</strong> {esc(storage['db_path'])}</div>
+  <div><strong>Outbound attempts:</strong> {storage['outbound_count']}</div>
+</section>
 """
 
 
@@ -1443,6 +1484,7 @@ def send_checkin_whatsapp(request_id):
         message = f"{message} SID: {result.sid}"
     return (
         message,
+        operations_status_html(),
         status_cards_html(),
         active_requests_html(),
         family_overview_html(),
@@ -1744,6 +1786,7 @@ def run_silence_scan():
     return (
         autopilot_result_text(result),
         autopilot_summary_html(),
+        operations_status_html(),
         status_cards_html(),
         active_requests_html(),
         family_overview_html(),
@@ -1761,6 +1804,9 @@ def save_autopilot_controls(enabled, scan_interval_minutes, send_whatsapp):
     return (
         f"Autopilot {mode}. Scan interval: {settings['scan_interval_minutes']} minutes. Delivery: {delivery}.",
         autopilot_summary_html(),
+        gr.Checkbox(value=settings["enabled"]),
+        gr.Number(value=settings["scan_interval_minutes"]),
+        gr.Checkbox(value=settings["send_whatsapp"]),
     )
 
 
@@ -1789,8 +1835,28 @@ def update_escalation_settings(member_id, reminder_minutes, amber_minutes, red_m
     return (
         f"Updated {member['name']}: reminder {member['reminder_minutes']} min, "
         f"amber {member['escalation_minutes_amber']} min, red {member['escalation_minutes_red']} min.",
+        gr.Number(value=member["reminder_minutes"]),
+        gr.Number(value=member["escalation_minutes_amber"]),
+        gr.Number(value=member["escalation_minutes_red"]),
         status_cards_html(),
         family_overview_html(),
+    )
+
+
+def load_escalation_settings(member_id):
+    if not member_id:
+        return gr.Number(value=10080), gr.Number(value=14400), gr.Number(value=20160), "Choose a family member."
+    member = db.one(
+        "SELECT name, reminder_minutes, escalation_minutes_amber, escalation_minutes_red FROM members WHERE id = ?",
+        (member_id,),
+    )
+    if not member:
+        return gr.Number(value=10080), gr.Number(value=14400), gr.Number(value=20160), "Member not found."
+    return (
+        gr.Number(value=member["reminder_minutes"]),
+        gr.Number(value=member["escalation_minutes_amber"]),
+        gr.Number(value=member["escalation_minutes_red"]),
+        f"Loaded {member['name']}: reminder {member['reminder_minutes']} min, amber {member['escalation_minutes_amber']} min, red {member['escalation_minutes_red']} min.",
     )
 
 
@@ -1866,9 +1932,20 @@ def synthesize_tts_prompt(text, language):
     result = modal_client.synthesize_speech(text, language)
     if not result.ok:
         raise gr.Error(f"TTS needs review: {result.error}")
-    audio = result.data.get("audio")
+    audio = tts_audio_from_modal(result.data)
     status = f"Generated with {result.data.get('model_used', 'Modal TTS')}."
     return audio, status
+
+
+def tts_audio_from_modal(data):
+    encoded = data.get("audio_wav_base64")
+    if not encoded:
+        raise gr.Error("TTS completed but returned no audio payload.")
+    import soundfile as sf
+
+    audio_bytes = base64.b64decode(encoded)
+    waveform, sample_rate = sf.read(io.BytesIO(audio_bytes), dtype="float32")
+    return int(sample_rate), waveform
 
 
 def build_app():
@@ -1901,6 +1978,7 @@ def build_app():
                     save_autopilot_btn = gr.Button("Save autopilot settings")
                     scan_btn = gr.Button("Run autopilot once", variant="primary")
                 autopilot_output = gr.Textbox(label="Autopilot result", lines=7, interactive=False)
+                operations_status = gr.HTML(operations_status_html())
                 status_cards = gr.HTML(status_cards_html())
                 with gr.Row():
                     refresh = gr.Button("Refresh", variant="primary")
@@ -2082,7 +2160,7 @@ def build_app():
                         synthesize_tts = gr.Button("Synthesize prompt", variant="primary")
                     tts_audio = gr.Audio(label="Generated prompt audio", type="numpy")
                     tts_status = gr.Textbox(label="TTS status", interactive=False)
-                    with gr.Accordion("Delivery log and data controls", open=False):
+                    with gr.Accordion("Delivery log and data controls", open=True):
                         outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
                         gr.Markdown("Production data starts empty. This only clears records; it never loads dummy data.")
                         clear_data_btn = gr.Button("Clear all data", variant="stop")
@@ -2092,17 +2170,34 @@ def build_app():
                 gr.HTML(build_notes_html())
                 modal_status = gr.Markdown(modal_health_markdown())
 
-        refresh.click(refresh_dashboard, outputs=[autopilot_status, status_cards, requests, family_table, care_routes, alerts, modal_status, budget])
+        refresh.click(
+            refresh_dashboard,
+            outputs=[
+                autopilot_status,
+                autopilot_enabled,
+                autopilot_interval,
+                autopilot_send_whatsapp,
+                operations_status,
+                status_cards,
+                requests,
+                family_table,
+                care_routes,
+                alerts,
+                modal_status,
+                budget,
+            ],
+        )
         save_autopilot_btn.click(
             save_autopilot_controls,
             inputs=[autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
-            outputs=[autopilot_output, autopilot_status],
+            outputs=[autopilot_output, autopilot_status, autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
         )
         scan_btn.click(
             run_silence_scan,
             outputs=[
                 autopilot_output,
                 autopilot_status,
+                operations_status,
                 status_cards,
                 requests,
                 family_table,
@@ -2131,7 +2226,7 @@ def build_app():
         send_whatsapp_btn.click(
             send_checkin_whatsapp,
             inputs=[send_request_picker],
-            outputs=[send_whatsapp_output, status_cards, requests, family_table, care_routes, alerts, outbound_messages, send_request_picker],
+            outputs=[send_whatsapp_output, operations_status, status_cards, requests, family_table, care_routes, alerts, outbound_messages, send_request_picker],
         )
         nudge_btn.click(nudge, inputs=[relay_member], outputs=[nudge_output])
         generate_tts_prompt.click(build_tts_prompt, inputs=[tts_member, tts_prompt_type, tts_language], outputs=[tts_text])
@@ -2187,7 +2282,12 @@ def build_app():
             ],
             outputs=[affiliation_output, affiliation_table, member_profile, family_table, care_routes],
         )
-        policy_btn.click(update_escalation_settings, inputs=[policy_member, reminder_minutes, amber_minutes, red_minutes], outputs=[policy_output, status_cards, family_table])
+        policy_member.change(load_escalation_settings, inputs=[policy_member], outputs=[reminder_minutes, amber_minutes, red_minutes, policy_output])
+        policy_btn.click(
+            update_escalation_settings,
+            inputs=[policy_member, reminder_minutes, amber_minutes, red_minutes],
+            outputs=[policy_output, reminder_minutes, amber_minutes, red_minutes, status_cards, family_table],
+        )
         add_btn.click(
             add_member,
             inputs=[new_name, new_phone, new_whatsapp, new_city, new_region, new_language, new_role, new_is_coordinator, new_call],
