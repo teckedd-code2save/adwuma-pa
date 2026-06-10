@@ -525,8 +525,9 @@ def main(
     reinit_adapters: bool = False,
     push_to_hub: bool = False,
     force_push: bool = False,
+    background: bool = False,
 ):
-    result = finetune.remote(
+    kwargs = dict(
         output_repo=output_repo,
         max_train_samples=max_train_samples,
         max_eval_samples=max_eval_samples,
@@ -546,4 +547,16 @@ def main(
         push_to_hub=push_to_hub,
         force_push=force_push,
     )
+    if background:
+        call = finetune.spawn(**kwargs)
+        print(
+            {
+                "status": "spawned",
+                "function_call_id": getattr(call, "object_id", None),
+                "output_repo": output_repo,
+                "push_to_hub": push_to_hub,
+            }
+        )
+        return
+    result = finetune.remote(**kwargs)
     print(result)
