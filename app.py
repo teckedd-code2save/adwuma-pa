@@ -1588,6 +1588,53 @@ def pending_request_choices():
     return [(f"{row['name']} - {friendly_reason(row['reason_code'])} ({row['priority']}, {row['status']})", row["id"]) for row in rows]
 
 
+def recent_checkin_choices():
+    rows = db.rows(
+        """
+        SELECT c.id, c.submitted_at, m.name, c.analysis_status
+        FROM checkins c
+        JOIN members m ON m.id = c.member_id
+        ORDER BY c.submitted_at DESC
+        LIMIT 30
+        """
+    )
+    return [(f"{row['name']} - {row['submitted_at']} - {row['analysis_status']}", row["id"]) for row in rows]
+
+
+def load_translation_review(checkin_id):
+    if not checkin_id:
+        return "", "", "", "Choose a response to review."
+    row = db.one(
+        """
+        SELECT c.raw_input, c.transcript, c.translation, c.summary, c.processing_error, m.name
+        FROM checkins c
+        JOIN members m ON m.id = c.member_id
+        WHERE c.id = ?
+        """,
+        (checkin_id,),
+    )
+    if not row:
+        return "", "", "", "Response not found."
+    original = row.get("transcript") or row.get("raw_input") or ""
+    notes = f"Loaded response for {row['name']}."
+    if row.get("processing_error"):
+        notes += f" Current review note: {row['processing_error']}"
+    return original, row.get("translation") or "", row.get("summary") or "", notes
+
+
+def save_translation_review(checkin_id, corrected_translation):
+    if not checkin_id:
+        raise gr.Error("Choose a response to review.")
+    if not (corrected_translation or "").strip():
+        raise gr.Error("Enter the corrected English translation.")
+    db.update_checkin_translation(checkin_id, corrected_translation.strip())
+    return (
+        "Saved corrected translation. Analysis is marked needs_review until rerun.",
+        recent_responses_html(),
+        gr.Dropdown(choices=recent_checkin_choices(), value=checkin_id),
+    )
+
+
 def send_checkin_whatsapp(request_id):
     if not request_id:
         raise gr.Error("Choose a pending check-in request.")
@@ -2085,7 +2132,6 @@ def build_app():
 
         with gr.Tabs():
             with gr.Tab("Overview"):
-                gr.HTML(demo_story_html())
                 autopilot_status = gr.HTML(autopilot_summary_html())
                 settings = db.autopilot_settings()
                 with gr.Row():
@@ -2100,16 +2146,16 @@ def build_app():
                 status_cards = gr.HTML(status_cards_html())
                 with gr.Row():
                     refresh = gr.Button("Refresh", variant="primary")
-                gr.HTML('<div class="ap-section-title">Active check-ins</div>')
-                requests = gr.HTML(active_requests_html())
-                gr.HTML('<div class="ap-section-title">Recent responses</div>')
-                recent_responses = gr.HTML(recent_responses_html())
-                gr.HTML('<div class="ap-section-title">Family overview</div>')
-                family_table = gr.HTML(family_overview_html())
-                gr.HTML('<div class="ap-section-title">Autopilot relative routes</div>')
-                care_routes = gr.HTML(care_routes_html())
-                gr.HTML('<div class="ap-section-title">Alerts and reviews</div>')
-                alerts = gr.HTML(alert_overview_html())
+                with gr.Accordion("Active check-ins", open=True):
+                    requests = gr.HTML(active_requests_html())
+                with gr.Accordion("Recent responses", open=True):
+                    recent_responses = gr.HTML(recent_responses_html())
+                with gr.Accordion("Alerts and reviews", open=True):
+                    alerts = gr.HTML(alert_overview_html())
+                with gr.Accordion("Family overview", open=False):
+                    family_table = gr.HTML(family_overview_html())
+                with gr.Accordion("Autopilot relative routes", open=False):
+                    care_routes = gr.HTML(care_routes_html())
                 with gr.Accordion("Resolve an alert", open=False):
                     alert_picker = gr.Dropdown(choices=alert_choices(), label="Alert or case")
                     with gr.Row():
@@ -2253,6 +2299,14 @@ def build_app():
                         submit = gr.Button("Save received response", variant="primary")
                         receipt = gr.Textbox(label="Result", interactive=False)
                         ai_json = gr.Code(label="Care processing result", language="json", visible=False)
+                        with gr.Accordion("Review translation", open=False):
+                            translation_checkin = gr.Dropdown(choices=recent_checkin_choices(), label="Response")
+                            load_translation = gr.Button("Load response")
+                            translation_original = gr.Textbox(label="Original / transcript", lines=3, interactive=False)
+                            translation_edit = gr.Textbox(label="Corrected English translation", lines=3)
+                            translation_summary = gr.Textbox(label="Current summary", lines=2, interactive=False)
+                            translation_review_output = gr.Textbox(label="Translation review", interactive=False)
+                            save_translation = gr.Button("Save corrected translation", variant="primary")
 
                 with gr.Accordion("Loop tools and settings", open=False):
                     with gr.Row():
@@ -2342,6 +2396,16 @@ def build_app():
             submit_checkin_by_token,
             inputs=[request_token, language, text, voice_audio, input_mode, source_state],
             outputs=[receipt, ai_json, status_cards, requests, family_table, care_routes, alerts, recent_responses, alert_picker],
+        )
+        load_translation.click(
+            load_translation_review,
+            inputs=[translation_checkin],
+            outputs=[translation_original, translation_edit, translation_summary, translation_review_output],
+        )
+        save_translation.click(
+            save_translation_review,
+            inputs=[translation_checkin, translation_edit],
+            outputs=[translation_review_output, recent_responses, translation_checkin],
         )
         resolve_btn.click(
             resolve_selected_alert,

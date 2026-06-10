@@ -91,6 +91,21 @@ def minutes_since(timestamp: str | None) -> int:
     return max(0, int((datetime.now(timezone.utc) - then).total_seconds() / 60))
 
 
+def human_duration(minutes: int) -> str:
+    minutes = max(0, int(minutes))
+    if minutes < 60:
+        return f"{minutes} minute{'s' if minutes != 1 else ''}"
+    hours = minutes // 60
+    rem_minutes = minutes % 60
+    if hours < 24:
+        suffix = f" {rem_minutes} min" if rem_minutes else ""
+        return f"{hours} hour{'s' if hours != 1 else ''}{suffix}"
+    days = hours // 24
+    rem_hours = hours % 24
+    suffix = f" {rem_hours} hr" if rem_hours else ""
+    return f"{days} day{'s' if days != 1 else ''}{suffix}"
+
+
 def route_contact(elder_id: str) -> dict | None:
     contact = db.one(
         """
@@ -185,15 +200,17 @@ def scan_silence() -> list[str]:
         contact = route_contact(member["id"])
         reminder = member.get("reminder_minutes") or 10080
         if silent >= red:
+            silent_text = human_duration(silent)
+            red_text = human_duration(red)
             alert_id = db.create_alert(
                 member["id"],
                 "red_silence",
-                f"No check-in for {silent} minutes; red threshold is {red} minutes.",
+                f"No check-in for {silent_text}. Red threshold is {red_text}.",
             )
             request_id = db.create_checkup_request(
                 member["id"],
                 "red_silence",
-                f"No check-in for {silent} minutes; red threshold is {red} minutes.",
+                f"We have not heard from {member['name']} for {silent_text}, which is beyond the red threshold of {red_text}.",
                 channel="whatsapp",
                 priority="red",
                 related_alert_id=alert_id,
@@ -214,15 +231,17 @@ def scan_silence() -> list[str]:
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
             actions.append(f"RED {member['name']}: alert {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
         elif silent >= amber:
+            silent_text = human_duration(silent)
+            amber_text = human_duration(amber)
             alert_id = db.create_alert(
                 member["id"],
                 "amber_silence",
-                f"No check-in for {silent} minutes; amber threshold is {amber} minutes.",
+                f"No check-in for {silent_text}. Amber threshold is {amber_text}.",
             )
             request_id = db.create_checkup_request(
                 member["id"],
                 "amber_silence",
-                f"No check-in for {silent} minutes; amber threshold is {amber} minutes.",
+                f"We have not heard from {member['name']} for {silent_text}, which is beyond the amber threshold of {amber_text}.",
                 channel="whatsapp",
                 priority="amber",
                 related_alert_id=alert_id,
@@ -243,15 +262,17 @@ def scan_silence() -> list[str]:
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
             actions.append(f"AMBER {member['name']}: alert {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
         elif silent >= reminder:
+            silent_text = human_duration(silent)
+            reminder_text = human_duration(reminder)
             alert_id = db.create_alert(
                 member["id"],
                 "reminder_silence",
-                f"No check-in for {silent} minutes; reminder threshold is {reminder} minutes.",
+                f"No check-in for {silent_text}. Reminder threshold is {reminder_text}.",
             )
             request_id = db.create_checkup_request(
                 member["id"],
                 "reminder_silence",
-                f"No check-in for {silent} minutes; reminder threshold is {reminder} minutes.",
+                f"We have not heard from {member['name']} for {silent_text}, so Adwuma Pa is sending a reminder.",
                 channel="whatsapp",
                 priority="routine",
                 related_alert_id=alert_id,

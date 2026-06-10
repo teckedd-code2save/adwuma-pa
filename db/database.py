@@ -836,6 +836,25 @@ def update_outbound_status(provider_sid: str, status: str, error: str | None = N
         )
 
 
+def update_checkin_translation(checkin_id: str, translation: str, reviewer: str = "Coordinator") -> None:
+    with connect() as conn:
+        conn.execute(
+            """
+            UPDATE checkins
+            SET translation = ?,
+                analysis_status = 'needs_review',
+                concern_level = NULL,
+                processing_error = ?
+            WHERE id = ?
+            """,
+            (
+                translation,
+                f"English translation corrected by {reviewer}. Re-run analysis before using an automated concern score.",
+                checkin_id,
+            ),
+        )
+
+
 def outbound_rows(limit: int = 20) -> list[dict[str, Any]]:
     return rows(
         """
