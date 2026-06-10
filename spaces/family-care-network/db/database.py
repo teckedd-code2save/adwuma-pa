@@ -409,6 +409,11 @@ def create_alert(member_id: str, alert_type: str, notes: str) -> str:
         (member_id, alert_type),
     )
     if existing:
+        with connect() as conn:
+            conn.execute(
+                "UPDATE alerts SET notes = ?, created_at = ? WHERE id = ?",
+                (notes, now_iso(), existing["id"]),
+            )
         return existing["id"]
     alert_id = new_id("alert")
     with connect() as conn:
@@ -525,17 +530,61 @@ def add_checkin(
                     (now_iso(), checkin_id, request["related_nudge_id"]),
                 )
     if concern_level is not None:
-        maybe_create_concern_alert(member_id, concern_level)
+        maybe_create_concern_alert(
+            member_id,
+            concern_level,
+            summary=summary,
+            flags=flags,
+            transcript=transcript,
+            translation=translation,
+            analysis_json=analysis_json,
+        )
     elif analysis_status == "needs_review":
         create_alert(member_id, "needs_review", processing_error or "Check-in requires human review.")
     return checkin_id
 
 
-def maybe_create_concern_alert(member_id: str, concern_level: int) -> None:
+def maybe_create_concern_alert(
+    member_id: str,
+    concern_level: int,
+    summary: str = "",
+    flags: list[str] | None = None,
+    transcript: str = "",
+    translation: str | None = None,
+    analysis_json: dict[str, Any] | None = None,
+) -> None:
     if concern_level < 4:
         return
     alert_type = "red_concern" if concern_level >= 7 else "amber_concern"
-    create_alert(member_id, alert_type, f"Concern score {concern_level} from latest check-in.")
+    create_alert(member_id, alert_type, concern_alert_notes(concern_level, summary, flags or [], transcript, translation, analysis_json or {}))
+
+
+def concern_alert_notes(
+    concern_level: int,
+    summary: str,
+    flags: list[str],
+    transcript: str,
+    translation: str | None,
+    analysis_json: dict[str, Any],
+) -> str:
+    evidence = analysis_json.get("evidence") or []
+    recommendation = analysis_json.get("recommended_action") or ""
+    confidence = analysis_json.get("confidence") or ""
+    lines = [f"Concern score {concern_level} from latest check-in."]
+    if summary:
+        lines.append(f"Summary: {summary}")
+    if evidence:
+        lines.append("Evidence: " + "; ".join(str(item) for item in evidence[:3]))
+    if flags:
+        lines.append("Flags: " + ", ".join(str(flag) for flag in flags[:5]))
+    if recommendation:
+        lines.append(f"Recommended action: {recommendation}")
+    if confidence:
+        lines.append(f"Confidence: {confidence}")
+    excerpt = (translation or transcript or "").strip()
+    if excerpt:
+        lines.append(f"Reply excerpt: {excerpt[:220]}")
+    return "\n".join(lines)
 
 
 def create_checkup_request(

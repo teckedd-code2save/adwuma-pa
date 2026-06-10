@@ -315,6 +315,34 @@ select {
 .ap-reminder { border-left: 6px solid #b45309; }
 .ap-amber { border-left: 6px solid #d97706; }
 .ap-red { border-left: 6px solid #b91c1c; }
+.ap-build-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  margin-top: 12px;
+}
+.ap-build-panel {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  color: #0f172a;
+  padding: 16px;
+}
+.ap-build-panel h3 {
+  color: #0f172a !important;
+  font-size: 18px;
+  margin: 0 0 8px;
+}
+.ap-build-panel p,
+.ap-build-panel li {
+  color: #1e293b !important;
+  font-size: 14px;
+  line-height: 1.5;
+}
+.ap-build-panel ul {
+  margin: 8px 0 0;
+  padding-left: 18px;
+}
 .ap-section-title {
   color: #0f172a !important;
   font-size: 18px;
@@ -859,13 +887,14 @@ def alert_overview_html(limit=8):
     for row in rows:
         state_label = "Needs closure" if row["State"].lower() == "open" else row["State"]
         action = alert_next_action(row["Type"])
+        notes = alert_note_html(row["Notes"])
         items.append(
             f"""
             <article class="ap-item ap-alert">
               <div>
-                <div class="ap-item-title">{row['Member']}</div>
-                <div class="ap-item-meta">{row['Type']} · {state_label}</div>
-                <div class="ap-item-note">{row['Notes'] or 'No notes yet.'}</div>
+                <div class="ap-item-title">{esc(row['Member'])}</div>
+                <div class="ap-item-meta">{esc(row['Type'])} · {esc(state_label)}</div>
+                {notes}
                 <div class="ap-item-note"><strong>Next:</strong> {action}</div>
               </div>
               <span class="ap-state">{state_label.lower()}</span>
@@ -873,6 +902,20 @@ def alert_overview_html(limit=8):
             """
         )
     return '<section class="ap-list">' + "\n".join(items) + "</section>"
+
+
+def alert_note_html(notes):
+    lines = [line.strip() for line in (notes or "").splitlines() if line.strip()]
+    if not lines:
+        return '<div class="ap-item-note">No details yet.</div>'
+    rendered = []
+    for line in lines[:6]:
+        if ":" in line:
+            label, value = line.split(":", 1)
+            rendered.append(f"<div class=\"ap-item-note\"><strong>{esc(label)}:</strong>{esc(value)}</div>")
+        else:
+            rendered.append(f"<div class=\"ap-item-note\">{esc(line)}</div>")
+    return "\n".join(rendered)
 
 
 def alert_next_action(alert_type):
@@ -1694,6 +1737,37 @@ def modal_health_markdown():
     return f"Modal backend: **not configured/off**\n\n{result.error}"
 
 
+def build_notes_html():
+    return """
+<section class="ap-build-grid">
+  <article class="ap-build-panel">
+    <h3>Submission positioning</h3>
+    <p>This is a Backyard AI project for one real family coordination problem: making sure elders are checked on, understood, routed to the right relative, and followed through.</p>
+    <p>The AI is load-bearing in four places: Twi/Fante speech-to-text, Twi/Fante-to-English translation, Qwen structured concern analysis, and choosing the next human action. If Modal is unavailable, the app stores the response as needs_review instead of producing a fake score.</p>
+  </article>
+  <article class="ap-build-panel">
+    <h3>OpenAI track case</h3>
+    <p>The project is Codex-built and demonstrates a practical agentic workflow: monitor, interpret, pick the nearest responsible person, escalate, and close the loop.</p>
+    <p>Commit history and build notes are kept in the repo so the Codex authorship path is visible.</p>
+  </article>
+  <article class="ap-build-panel">
+    <h3>Implemented by Codex</h3>
+    <ul>
+      <li>ASR evaluation Space with community voting.</li>
+      <li>Main Gradio care dashboard with SQLite persistence.</li>
+      <li>Tokenized checkup links, alerts, first-party nudge drafts, and closure flow.</li>
+      <li>Configurable reminder, amber, and red silence escalation intervals.</li>
+      <li>Modal-safe boundary for ASR, translation, Qwen analysis, and TTS.</li>
+    </ul>
+  </article>
+  <article class="ap-build-panel">
+    <h3>Current execution plan</h3>
+    <p>Modal is stopped while not testing. Next live session: enable autopilot scheduling, run one controlled end-to-end loop, then stop Modal again.</p>
+  </article>
+</section>
+"""
+
+
 def build_tts_prompt(member_id, prompt_type, language):
     member = db.one("SELECT * FROM members WHERE id = ?", (member_id,)) if member_id else None
     name = member["name"] if member else "Opanyin"
@@ -1933,42 +2007,7 @@ def build_app():
                         admin_output = gr.Textbox(label="Admin action", interactive=False)
 
             with gr.Tab("Build Notes"):
-                gr.Markdown(
-                    """
-### Submission positioning
-
-This is a Backyard AI project: it solves one real family coordination problem instead of a generic SaaS problem.
-
-The AI is load-bearing in four places: speech-to-text for Twi/Fante, Twi/Fante-to-English translation,
-Qwen structured concern analysis, and routing the next human action. If Modal is unavailable, the app stores
-the response as needs_review instead of producing a fake score.
-
-### OpenAI track case
-
-The project is Codex-built, includes an agent trace/report path, and demonstrates a practical agentic workflow:
-monitor, interpret, choose the nearest responsible person, escalate, and close the loop.
-                    """
-                )
-                gr.Markdown(
-                    """
-### Built with OpenAI Codex
-
-Codex converted the product spec into two working Hugging Face Spaces: the ASR evaluation app and this family care network.
-
-### Implemented by Codex in this repo
-
-- ASR eval app with MMS, Adwuma Pa fine-tune, and GiftMark model comparison.
-- Community ASR voting for Twi/Fante/Akan samples.
-- Main Gradio care dashboard with SQLite persistence.
-- Tokenized checkup requests, alerts, first-party nudge drafts, and loop resolution.
-- Configurable reminder, amber, and red silence escalation intervals.
-- Modal-safe client boundary for ASR, translation, Qwen analysis, and TTS.
-
-### Current execution plan
-
-Next: start Modal only for targeted endpoint validation, then stop it when live testing is complete.
-                    """
-                )
+                gr.HTML(build_notes_html())
                 modal_status = gr.Markdown(modal_health_markdown())
 
         refresh.click(refresh_dashboard, outputs=[status_cards, requests, family_table, care_routes, alerts, modal_status, budget])
