@@ -375,10 +375,6 @@ def finetune(
         **{key: value for key, value in training_arg_values.items() if key in accepted_training_args}
     )
 
-    callbacks = []
-    if early_stopping_patience > 0:
-        callbacks.append(EarlyStoppingCallback(early_stopping_patience=early_stopping_patience))
-
     trainer = Trainer(
         model=model,
         args=training_args,
@@ -387,7 +383,6 @@ def finetune(
         processing_class=processor,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
-        callbacks=callbacks,
     )
 
     def sample_predictions(dataset, count: int = 5) -> list[dict[str, str]]:
@@ -424,7 +419,14 @@ def finetune(
         print(f"Baseline YouVersion metrics: {baseline_youversion}")
     print(f"Baseline samples: {baseline_samples}")
 
+    if early_stopping_patience > 0:
+        trainer.add_callback(EarlyStoppingCallback(early_stopping_patience=early_stopping_patience))
     train_result = trainer.train()
+    trainer.callback_handler.callbacks = [
+        callback
+        for callback in trainer.callback_handler.callbacks
+        if not isinstance(callback, EarlyStoppingCallback)
+    ]
     print(f"Train metrics: {train_result.metrics}")
 
     final_primary = trainer.evaluate(
