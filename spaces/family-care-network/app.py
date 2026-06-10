@@ -12,7 +12,7 @@ import gradio as gr
 
 from config.models import ASR_CONFIG, LLM_CONFIG, TRANSLATION_CONFIG, TTS_CONFIG, total_parameter_budget_b
 from db import database as db
-from services.relay import dashboard_rows, simulate_nudge
+from services.relay import dashboard_rows, route_contact, simulate_nudge
 from services.autopilot import autopilot_summary_html, run_autopilot_scan
 from services import modal_client, pipeline, twilio_client
 
@@ -827,9 +827,13 @@ def active_requests_html(limit=8):
     rows = db.rows(
         """
         SELECT r.token, r.request_type, r.reason_code, r.reason_detail, r.priority, r.status,
-               r.created_at, m.name, m.location_city
+               r.created_at, m.name, m.location_city,
+               c.name AS contact_name,
+               c.location_city AS contact_city
         FROM checkup_requests r
         JOIN members m ON m.id = r.member_id
+        LEFT JOIN nudges n ON n.id = r.related_nudge_id
+        LEFT JOIN members c ON c.id = n.contact_id
         WHERE r.status IN ('pending', 'sent', 'processing', 'needs_review')
         ORDER BY
           CASE r.priority WHEN 'red' THEN 0 WHEN 'amber' THEN 1 ELSE 2 END,
@@ -845,13 +849,20 @@ def active_requests_html(limit=8):
         priority = row["priority"] or "routine"
         detail = row["reason_detail"] or friendly_reason(row["reason_code"])
         link = f"/checkin/{row['token']}"
-        label = "Relative report" if row["request_type"] == "field_report" else "Elder check-in"
+        is_report = row["request_type"] == "field_report"
+        label = "Relative report" if is_report else "Elder check-in"
+        responder = (
+            f"{row['contact_name']} ({row['contact_city'] or 'location unset'})"
+            if is_report and row.get("contact_name")
+            else row["name"]
+        )
         cards.append(
             f"""
             <article class="ap-item ap-{priority}">
               <div>
                 <div class="ap-item-title">{row['name']}</div>
                 <div class="ap-item-meta">{label} · {friendly_reason(row['reason_code'])} · {row['status']}</div>
+                <div class="ap-item-note"><strong>Expected responder:</strong> {esc(responder)}</div>
                 <div class="ap-item-note">{detail}</div>
               </div>
               <code>{link}</code>
@@ -886,19 +897,28 @@ def family_overview_html(limit=12):
 
 
 def care_routes_html(limit=10):
-    rows = dashboard_rows()[:limit]
+    rows = [row for row in dashboard_rows() if row.get("Role") == "elder"][:limit]
     if not rows:
-        return '<div class="ap-empty">No care routes yet.</div>'
+        return '<div class="ap-empty">No elders registered. Add an elder, then add affiliations to relatives who can respond.</div>'
     items = []
     for row in rows:
+        member = db.one("SELECT id FROM members WHERE name = ? AND family_role = 'elder' AND active = 1 LIMIT 1", (row["Name"],))
+        contact = route_contact(member["id"]) if member else None
+        if contact:
+            role = (contact.get("care_role") or "family").replace("_", " ")
+            note = f"Valid route: {esc(row['Name'])} -> {esc(contact['name'])} ({esc(role)}, priority {esc(contact.get('affiliation_priority') or 1)})"
+            state = "valid"
+        else:
+            note = "Missing route: add an affiliation where this elder is the person being cared for and the relative has a care role such as first-party contact or nearby relative."
+            state = "needs route"
         items.append(
             f"""
             <article class="ap-item">
               <div>
-                <div class="ap-item-title">{row['Name']}</div>
-                <div class="ap-item-meta">Next contact: {row.get('Care route') or 'No care contact assigned'}</div>
+                <div class="ap-item-title">{esc(row['Name'])}</div>
+                <div class="ap-item-meta">{note}</div>
               </div>
-              <span class="ap-state">{row['Status']}</span>
+              <span class="ap-state">{state}</span>
             </article>
             """
         )
@@ -1986,6 +2006,8 @@ def build_app():
                 requests = gr.HTML(active_requests_html())
                 gr.HTML('<div class="ap-section-title">Family overview</div>')
                 family_table = gr.HTML(family_overview_html())
+                gr.HTML('<div class="ap-section-title">Autopilot relative routes</div>')
+                care_routes = gr.HTML(care_routes_html())
                 gr.HTML('<div class="ap-section-title">Alerts and reviews</div>')
                 alerts = gr.HTML(alert_overview_html())
                 gr.HTML('<div class="ap-section-title">Close confirmed follow-up</div>')
@@ -1994,7 +2016,6 @@ def build_app():
                     resolution_notes = gr.Textbox(label="What happened", value="Relative checked in and confirmed next action.")
                     resolve_btn = gr.Button("Close most urgent alert")
                 resolve_output = gr.Textbox(label="Closure result", interactive=False)
-                care_routes = gr.HTML(care_routes_html(), visible=False)
 
             with gr.Tab("Family Setup"):
                 member_storage = gr.HTML(storage_status_html())

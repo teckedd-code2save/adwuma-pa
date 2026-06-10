@@ -441,7 +441,7 @@ def autopilot_settings() -> dict[str, Any]:
 
 
 def save_autopilot_settings(enabled: bool, scan_interval_minutes: int, send_whatsapp: bool) -> dict[str, Any]:
-    interval = max(5, int(scan_interval_minutes or 360))
+    interval = max(1, int(scan_interval_minutes or 360))
     set_setting("autopilot.enabled", bool(enabled))
     set_setting("autopilot.scan_interval_minutes", interval)
     set_setting("autopilot.send_whatsapp", bool(send_whatsapp))

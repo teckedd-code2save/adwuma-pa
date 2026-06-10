@@ -91,21 +91,34 @@ def checkin_url(token: str) -> str:
 def send_request_link(request_id: str) -> TwilioResult:
     request = db.one(
         """
-        SELECT r.*, m.name, m.whatsapp, m.phone
+        SELECT r.*,
+               m.name AS elder_name,
+               m.whatsapp AS elder_whatsapp,
+               m.phone AS elder_phone,
+               COALESCE(c.id, m.id) AS recipient_member_id,
+               COALESCE(c.name, m.name) AS recipient_name,
+               COALESCE(c.whatsapp, m.whatsapp) AS recipient_whatsapp,
+               COALESCE(c.phone, m.phone) AS recipient_phone,
+               n.contact_id AS nudge_contact_id
         FROM checkup_requests r
         JOIN members m ON m.id = r.member_id
+        LEFT JOIN nudges n ON n.id = r.related_nudge_id
+        LEFT JOIN members c ON c.id = n.contact_id
         WHERE r.id = ?
         """,
         (request_id,),
     )
     if not request:
         return TwilioResult(False, "failed", "No request found.")
+    if request["request_type"] == "field_report" and not request.get("nudge_contact_id"):
+        return TwilioResult(False, "failed", "Field report has no assigned relative contact. Add a valid affiliation first.")
     body = request_message_body(request)
-    result = send_whatsapp(request.get("whatsapp") or request.get("phone"), body)
+    recipient = request.get("recipient_whatsapp") or request.get("recipient_phone")
+    result = send_whatsapp(recipient, body)
     db.add_outbound_message(
         request_id=request["id"],
-        recipient_member_id=request["member_id"],
-        recipient=request.get("whatsapp") or request.get("phone"),
+        recipient_member_id=request.get("recipient_member_id") or request["member_id"],
+        recipient=recipient,
         body=body,
         status=result.status,
         provider_sid=result.sid,
@@ -116,8 +129,14 @@ def send_request_link(request_id: str) -> TwilioResult:
 
 def request_message_body(request: dict) -> str:
     reason = (request.get("reason_code") or "check-in").replace("_", " ")
+    if request.get("request_type") == "field_report":
+        return (
+            f"Adwuma Pa needs your help checking on {request['elder_name']}. "
+            f"Reason: {reason}. "
+            f"Please send a short family report here: {checkin_url(request['token'])}"
+        )
     return (
-        f"Adwuma Pa check-in for {request['name']}. "
+        f"Adwuma Pa check-in for {request['elder_name']}. "
         f"Reason: {reason}. "
         f"Please respond here: {checkin_url(request['token'])}"
     )
