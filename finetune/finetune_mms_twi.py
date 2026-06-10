@@ -332,9 +332,6 @@ def finetune(
             return batch
 
     data_collator = DataCollatorCTCWithPadding(processor=processor)
-    eval_datasets = {"primary": ds["eval_primary"]}
-    if "eval_youversion" in ds:
-        eval_datasets["youversion"] = ds["eval_youversion"]
 
     training_arg_values = {
         "output_dir": "/cache/mms-twi-checkpoints",
@@ -353,7 +350,7 @@ def finetune(
         "save_steps": save_steps,
         "save_total_limit": 2,
         "load_best_model_at_end": True,
-        "metric_for_best_model": "eval_primary_wer",
+        "metric_for_best_model": "eval_wer",
         "greater_is_better": False,
         "gradient_checkpointing": False,
         "max_grad_norm": 0.5,
@@ -379,7 +376,7 @@ def finetune(
         model=model,
         args=training_args,
         train_dataset=ds["train"],
-        eval_dataset=eval_datasets,
+        eval_dataset=ds["eval_primary"],
         processing_class=processor,
         data_collator=data_collator,
         compute_metrics=compute_metrics,
