@@ -82,6 +82,7 @@ def finetune(
 ) -> dict:
     import os
     import re
+    import inspect
     import unicodedata
     from dataclasses import dataclass
     from typing import Any
@@ -221,30 +222,35 @@ def finetune(
             "cer": cer_metric.compute(predictions=pred_str, references=label_str),
         }
 
+    training_arg_values = {
+        "output_dir": "/cache/mms-twi-checkpoints",
+        "per_device_train_batch_size": per_device_batch_size,
+        "per_device_eval_batch_size": per_device_batch_size,
+        "gradient_accumulation_steps": gradient_accumulation_steps,
+        "num_train_epochs": num_train_epochs,
+        "learning_rate": learning_rate,
+        "warmup_steps": 0,
+        "fp16": False,
+        "fp16_full_eval": False,
+        "eval_strategy": "epoch",
+        "evaluation_strategy": "epoch",
+        "save_strategy": "epoch",
+        "save_total_limit": 2,
+        "load_best_model_at_end": True,
+        "metric_for_best_model": "wer",
+        "greater_is_better": False,
+        "gradient_checkpointing": True,
+        "group_by_length": True,
+        "dataloader_num_workers": 2,
+        "logging_steps": 25,
+        "report_to": "none",
+        "push_to_hub": push_to_hub,
+        "hub_model_id": output_repo or None,
+        "hub_token": hf_token,
+    }
+    accepted_training_args = set(inspect.signature(TrainingArguments.__init__).parameters)
     training_args = TrainingArguments(
-        output_dir="/cache/mms-twi-checkpoints",
-        per_device_train_batch_size=per_device_batch_size,
-        per_device_eval_batch_size=per_device_batch_size,
-        gradient_accumulation_steps=gradient_accumulation_steps,
-        num_train_epochs=num_train_epochs,
-        learning_rate=learning_rate,
-        warmup_ratio=0.05,
-        fp16=torch.cuda.is_available(),
-        fp16_full_eval=torch.cuda.is_available(),
-        eval_strategy="epoch",
-        save_strategy="epoch",
-        save_total_limit=2,
-        load_best_model_at_end=True,
-        metric_for_best_model="wer",
-        greater_is_better=False,
-        gradient_checkpointing=True,
-        group_by_length=True,
-        dataloader_num_workers=2,
-        logging_steps=25,
-        report_to="none",
-        push_to_hub=push_to_hub,
-        hub_model_id=output_repo or None,
-        hub_token=hf_token,
+        **{key: value for key, value in training_arg_values.items() if key in accepted_training_args}
     )
 
     trainer = Trainer(
@@ -258,8 +264,11 @@ def finetune(
     )
 
     baseline_metrics = trainer.evaluate(metric_key_prefix="baseline")
+    print(f"Baseline metrics: {baseline_metrics}")
     train_result = trainer.train()
+    print(f"Train metrics: {train_result.metrics}")
     eval_metrics = trainer.evaluate(metric_key_prefix="eval")
+    print(f"Eval metrics: {eval_metrics}")
 
     if push_to_hub:
         trainer.push_to_hub(
