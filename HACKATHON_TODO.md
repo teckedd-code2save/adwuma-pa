@@ -24,6 +24,9 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 9. [x] Local autopilot scan creates real queued requests.
 10. [x] Validate Modal translation endpoint with one real Twi phrase.
 11. [ ] Validate Modal ASR endpoint with one real audio sample.
+12. [x] Accept `ghananlpcommunity/twi-speech-text-multispeaker-16k` as fine-tune dataset 1.
+13. [x] Add cost-capped Modal MMS Twi fine-tune harness.
+14. [ ] Run 128/32 Modal fine-tune smoke job.
 
 ## Phase 1: ASR Evaluation
 
@@ -36,6 +39,10 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 - [ ] Collect at least 20 community votes across Twi and Fante.
 - [ ] Summarize findings in Field Notes.
 - [ ] Decide production ASR default.
+- [x] Accept `ghananlpcommunity/twi-speech-text-multispeaker-16k` as fine-tune dataset 1.
+- [x] Add cost-capped Modal MMS Twi fine-tune harness.
+- [ ] Run 128/32 Modal fine-tune smoke job.
+- [ ] Run full fine-tune only after smoke job passes.
 
 ## Phase 2: Main App Foundation
 

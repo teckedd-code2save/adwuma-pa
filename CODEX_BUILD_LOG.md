@@ -22,6 +22,7 @@ This project was implemented with OpenAI Codex as the coding agent from the prod
 16. Validated Modal Akan TTS with `facebook/mms-tts-aka`, then stopped Modal with zero active tasks.
 17. Fixed inbound WhatsApp routing so a relative's reply can close an elder field-report request and mark the nudge responded.
 18. Reworked the Gradio UI into a recorder-friendly flow with Overview, Family Setup, Care Loop, and Build Notes tabs.
+19. Accepted `ghananlpcommunity/twi-speech-text-multispeaker-16k` as the first Twi ASR fine-tuning dataset and added a cost-capped Modal fine-tune harness.
 
 ## Codex Role
 
@@ -29,4 +30,4 @@ Codex translated the product spec into working Hugging Face Spaces, wrote and pa
 
 ## Current Next Step
 
-The next engineering step is one real ASR audio validation, then final end-to-end testing with live WhatsApp delivery when the sandbox is ready.
+The next engineering step is a 128/32 Modal fine-tune smoke job, then one real ASR audio validation before final end-to-end testing with live WhatsApp delivery.

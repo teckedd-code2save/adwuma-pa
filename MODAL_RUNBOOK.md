@@ -75,6 +75,54 @@ python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --speak "Me pe se
 Do not run ASR/Qwen/TTS repeatedly during UI iteration. Those endpoints are GPU-backed.
 Use a real short elder-style audio sample for ASR; synthetic or silent audio is not a useful validation.
 
+## ASR Fine-Tune Dataset 1
+
+Primary Twi ASR fine-tuning dataset:
+
+```text
+ghananlpcommunity/twi-speech-text-multispeaker-16k
+config: default
+split: train
+live rows checked: 15,560
+columns: audio, text, duration
+duration range: 0.039s to 10.0s
+mean duration: 2.20s
+```
+
+Use the fine-tune harness only when intentionally testing or training:
+
+```bash
+modal run finetune/finetune_mms_twi.py --max-train-samples 128 --max-eval-samples 32
+```
+
+For a real but still cost-capped run:
+
+```bash
+modal run finetune/finetune_mms_twi.py \
+  --output-repo teckedd/mms-twi-adwuma-pa-v1 \
+  --max-train-samples 12000 \
+  --max-eval-samples 1200 \
+  --num-train-epochs 3 \
+  --push-to-hub
+```
+
+Prerequisite secret:
+
+```bash
+modal secret create huggingface-token HF_TOKEN=<hf-write-token>
+```
+
+Cost rules:
+
+- Run the 128/32 smoke job first.
+- Stop if preprocessing, labels, or WER evaluation fails.
+- Do not run the full 12k/1.2k job until the smoke job finishes cleanly.
+- Stop the fine-tune app after any run:
+
+```bash
+modal app stop adwuma-pa-finetune --yes
+```
+
 ## Cron
 
 Do not deploy cron during development. Use the dashboard button "Run autopilot once".

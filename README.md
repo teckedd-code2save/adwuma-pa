@@ -70,5 +70,6 @@ For the ASR evaluation Space, set `app_file: asr_eval.py` in that Space README o
 - `services/relay.py`: silence detection, request creation, and contact routing.
 - `modal_backend/adwuma_modal.py`: Modal endpoints for health, translation, ASR, Qwen analysis, and TTS.
 - `modal_backend/cron.py`: deploy-only-when-needed Modal cron skeleton.
+- `finetune/finetune_mms_twi.py`: cost-capped Modal harness for Twi MMS ASR fine-tuning on `ghananlpcommunity/twi-speech-text-multispeaker-16k`.
 - `SUBMISSION.md`: demo script, social copy, and judging checklist.
 - `FIELD_NOTES.md`: report draft for the Field Notes badge.
