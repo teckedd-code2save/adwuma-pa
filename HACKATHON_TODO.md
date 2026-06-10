@@ -26,7 +26,8 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 11. [ ] Validate Modal ASR endpoint with one real audio sample.
 12. [x] Accept `ghananlpcommunity/twi-speech-text-multispeaker-16k` as fine-tune dataset 1.
 13. [x] Add cost-capped Modal MMS Twi fine-tune harness.
-14. [ ] Run 128/32 Modal fine-tune smoke job.
+14. [x] Add `AfriSpeech/youversion-african-speech` Akan slice as optional eval/train supplement.
+15. [ ] Run 128/32 Modal fine-tune smoke job.
 
 ## Phase 1: ASR Evaluation
 
@@ -41,6 +42,7 @@ Built from `ADWUMA_PA_SPEC_V2.md` and current progress.
 - [ ] Decide production ASR default.
 - [x] Accept `ghananlpcommunity/twi-speech-text-multispeaker-16k` as fine-tune dataset 1.
 - [x] Add cost-capped Modal MMS Twi fine-tune harness.
+- [x] Add `AfriSpeech/youversion-african-speech` Akan slice as optional eval/train supplement.
 - [ ] Run 128/32 Modal fine-tune smoke job.
 - [ ] Run full fine-tune only after smoke job passes.
 

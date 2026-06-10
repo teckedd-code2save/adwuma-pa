@@ -14,6 +14,13 @@ For a real run, pass a Hub repo and enable push:
       --num-train-epochs 3 \
       --push-to-hub
 
+To add a small held-out YouVersion Akan robustness slice:
+
+    modal run finetune/finetune_mms_twi.py \
+      --include-youversion \
+      --youversion-mode eval \
+      --max-youversion-samples 200
+
 Requires a Modal secret named `huggingface-token` with `HF_TOKEN`.
 """
 
@@ -25,6 +32,8 @@ import modal
 APP_NAME = "adwuma-pa-finetune"
 DATASET_ID = "ghananlpcommunity/twi-speech-text-multispeaker-16k"
 DATASET_CONFIG = "default"
+YOUVERSION_DATASET_ID = "AfriSpeech/youversion-african-speech"
+YOUVERSION_CONFIG = "Akan_aka"
 BASE_MODEL = "facebook/mms-1b-all"
 TARGET_LANG = "twi"
 
@@ -66,6 +75,9 @@ def finetune(
     per_device_batch_size: int = 4,
     gradient_accumulation_steps: int = 4,
     learning_rate: float = 1e-4,
+    include_youversion: bool = False,
+    youversion_mode: str = "eval",
+    max_youversion_samples: int = 200,
     push_to_hub: bool = False,
 ) -> dict:
     import os
@@ -76,7 +88,7 @@ def finetune(
     import evaluate
     import numpy as np
     import torch
-    from datasets import Audio, DatasetDict, load_dataset
+    from datasets import Audio, DatasetDict, concatenate_datasets, load_dataset
     from transformers import AutoProcessor, Trainer, TrainingArguments, Wav2Vec2ForCTC
 
     if push_to_hub and not output_repo:
@@ -89,6 +101,8 @@ def finetune(
     hf_token = os.environ.get("HF_TOKEN")
     if push_to_hub and not hf_token:
         raise ValueError("HF_TOKEN is required to push the fine-tuned model")
+    if youversion_mode not in {"train", "eval"}:
+        raise ValueError("youversion_mode must be 'train' or 'eval'")
 
     def normalize_text(value: str) -> str:
         return re.sub(r"\s+", " ", (value or "").strip())
@@ -106,6 +120,26 @@ def finetune(
         ds["eval"] = ds["eval"].select(range(min(max_eval_samples, len(ds["eval"]))))
 
     print(f"Prepared rows: train={len(ds['train'])}, eval={len(ds['eval'])}")
+
+    youversion_rows = 0
+    if include_youversion:
+        print(f"Loading supplemental {YOUVERSION_DATASET_ID} ({YOUVERSION_CONFIG}/train)")
+        yv = load_dataset(YOUVERSION_DATASET_ID, YOUVERSION_CONFIG, split="train")
+        yv = yv.cast_column("audio", Audio(sampling_rate=16000))
+        yv = yv.filter(
+            lambda row: 0.5 <= float(row["duration"]) <= 15.0 and bool(normalize_text(row["text"]))
+        )
+        if max_youversion_samples > 0:
+            yv = yv.select(range(min(max_youversion_samples, len(yv))))
+        youversion_rows = len(yv)
+        if youversion_mode == "train":
+            ds["train"] = concatenate_datasets([ds["train"], yv])
+        else:
+            ds["eval"] = concatenate_datasets([ds["eval"], yv])
+        print(
+            f"YouVersion rows added: {youversion_rows} to {youversion_mode}. "
+            f"Now train={len(ds['train'])}, eval={len(ds['eval'])}"
+        )
 
     processor = AutoProcessor.from_pretrained(BASE_MODEL)
     if hasattr(processor, "tokenizer") and hasattr(processor.tokenizer, "set_target_lang"):
@@ -226,6 +260,9 @@ def finetune(
         "target_language": TARGET_LANG,
         "train_rows": len(ds["train"]),
         "eval_rows": len(ds["eval"]),
+        "youversion_included": include_youversion,
+        "youversion_mode": youversion_mode if include_youversion else None,
+        "youversion_rows": youversion_rows,
         "train_metrics": train_result.metrics,
         "eval_metrics": eval_metrics,
         "pushed_to_hub": push_to_hub,
@@ -242,6 +279,9 @@ def main(
     per_device_batch_size: int = 4,
     gradient_accumulation_steps: int = 4,
     learning_rate: float = 1e-4,
+    include_youversion: bool = False,
+    youversion_mode: str = "eval",
+    max_youversion_samples: int = 200,
     push_to_hub: bool = False,
 ):
     result = finetune.remote(
@@ -252,6 +292,9 @@ def main(
         per_device_batch_size=per_device_batch_size,
         gradient_accumulation_steps=gradient_accumulation_steps,
         learning_rate=learning_rate,
+        include_youversion=include_youversion,
+        youversion_mode=youversion_mode,
+        max_youversion_samples=max_youversion_samples,
         push_to_hub=push_to_hub,
     )
     print(result)

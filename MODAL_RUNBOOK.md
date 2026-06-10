@@ -123,6 +123,53 @@ Cost rules:
 modal app stop adwuma-pa-finetune --yes
 ```
 
+Supplemental Akan ASR dataset:
+
+```text
+AfriSpeech/youversion-african-speech
+config: Akan_aka
+split: train
+live rows checked: 2,180
+columns: id, language, text, duration, source_file, audio
+duration range: 0.1s to 29.9s
+mean duration: 6.05s
+domain: Bible/YouVersion read speech
+```
+
+Use it carefully. It is valuable Akan audio, but its scripture domain is not the same as family check-ins. Prefer it first as a held-out robustness slice:
+
+```bash
+modal run finetune/finetune_mms_twi.py \
+  --include-youversion \
+  --youversion-mode eval \
+  --max-youversion-samples 200 \
+  --max-train-samples 128 \
+  --max-eval-samples 32
+```
+
+Only mix it into training after the eval-only smoke path works:
+
+```bash
+modal run finetune/finetune_mms_twi.py \
+  --include-youversion \
+  --youversion-mode train \
+  --max-youversion-samples 400 \
+  --max-train-samples 12000 \
+  --max-eval-samples 1200 \
+  --num-train-epochs 3 \
+  --push-to-hub
+```
+
+Small things that matter for ASR performance:
+
+- Keep a fixed held-out eval set; do not judge by training WER.
+- Normalize whitespace and punctuation consistently before WER.
+- Filter very short clips and very long clips separately; they fail for different reasons.
+- Keep domain mix controlled. Family-care speech should dominate; scripture/read speech should not.
+- Run a tiny sample job before every full run.
+- Compare against the current app ASR models with the same audio and same normalization.
+- Keep low-confidence ASR as `needs_review`; do not force bad transcripts into concern scoring.
+
 ## Cron
 
 Do not deploy cron during development. Use the dashboard button "Run autopilot once".

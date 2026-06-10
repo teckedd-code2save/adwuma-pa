@@ -23,6 +23,7 @@ This project was implemented with OpenAI Codex as the coding agent from the prod
 17. Fixed inbound WhatsApp routing so a relative's reply can close an elder field-report request and mark the nudge responded.
 18. Reworked the Gradio UI into a recorder-friendly flow with Overview, Family Setup, Care Loop, and Build Notes tabs.
 19. Accepted `ghananlpcommunity/twi-speech-text-multispeaker-16k` as the first Twi ASR fine-tuning dataset and added a cost-capped Modal fine-tune harness.
+20. Added `AfriSpeech/youversion-african-speech` Akan as an explicit optional eval/train supplement, with notes to prevent scripture-domain audio from dominating family-care speech.
 
 ## Codex Role
 
