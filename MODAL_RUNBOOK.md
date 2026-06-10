@@ -77,9 +77,16 @@ Use a real short elder-style audio sample for ASR; synthetic or silent audio is 
 
 ## Cron
 
-Do not deploy cron during development. Use the dashboard button "Run silence scan now".
+Do not deploy cron during development. Use the dashboard button "Run autopilot once".
 
-Only for demo recording:
+Only for live autopilot testing, set a shared secret on the HF Space and Modal, then deploy cron:
+
+```bash
+hf spaces variables set build-small-hackathon/family-care-network ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
+modal secret create adwuma-pa-autopilot ADWUMA_PA_SPACE_URL=https://build-small-hackathon-family-care-network.hf.space ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
+```
+
+The Modal cron wakes every 15 minutes, but the Space decides whether a scan is due using the dashboard scan interval.
 
 ```bash
 modal deploy modal_backend/cron.py
@@ -158,6 +165,7 @@ PUBLIC_BASE_URL=https://build-small-hackathon-family-care-network.hf.space
 TWILIO_ACCOUNT_SID=<twilio-account-sid>
 TWILIO_AUTH_TOKEN=<twilio-auth-token>
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
 ```
 
 Twilio Sandbox:

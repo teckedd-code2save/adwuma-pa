@@ -67,15 +67,26 @@ Suggested low-cost checks:
 ```bash
 python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --health
 python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --translate "Me ho ye"
+python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --analyze-sample
+python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --transcribe-audio /path/to/short-real-akan.wav --language twi
+python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --speak "Me pe se me hwe wo ho." --language twi
 ```
 
 Do not run ASR/Qwen/TTS repeatedly during UI iteration. Those endpoints are GPU-backed.
+Use a real short elder-style audio sample for ASR; synthetic or silent audio is not a useful validation.
 
 ## Cron
 
-Do not deploy cron during development. Use the dashboard button "Run silence scan now".
+Do not deploy cron during development. Use the dashboard button "Run autopilot once".
 
-Only for demo recording:
+Only for live autopilot testing, set a shared secret on the HF Space and Modal, then deploy cron:
+
+```bash
+hf spaces variables set build-small-hackathon/family-care-network ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
+modal secret create adwuma-pa-autopilot ADWUMA_PA_SPACE_URL=https://build-small-hackathon-family-care-network.hf.space ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
+```
+
+The Modal cron wakes every 15 minutes, but the Space decides whether a scan is due using the dashboard scan interval.
 
 ```bash
 modal deploy modal_backend/cron.py
@@ -86,8 +97,8 @@ modal deploy modal_backend/cron.py
 Stop the inference app and cron app after validation/demo:
 
 ```bash
-modal app stop adwuma-pa-inference
-modal app stop adwuma-pa-cron
+modal app stop adwuma-pa-inference --yes
+modal app stop adwuma-pa-cron --yes
 ```
 
 Then remove or blank the HF Space variable if you want the public app to return `needs_review` instead of calling Modal:
@@ -106,6 +117,44 @@ hf spaces variables delete build-small-hackathon/family-care-network MODAL_API_B
 - Cron is not deployed until final demo validation.
 - Failed or unavailable inference becomes `needs_review`; never fake a concern score.
 
+## Last Validation Session
+
+2026-06-09:
+
+- Modal auth confirmed for workspace `createdliving1000`.
+- Deployed `adwuma-pa-inference`.
+- API base URL: `https://createdliving1000--api.modal.run`.
+- `/health` returned HTTP 200.
+- `/translate` returned HTTP 200 for `Me ho ye, na me nsa aka aduan. Meda wo ase.`
+- Translation output: `I am well, I have had food. Thank you.`
+- Translation model: `ninte/twi-en-nllb-v2`.
+- No ASR, Qwen, TTS, or cron endpoints were tested in this session.
+- App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
+
+2026-06-09 Qwen validation:
+
+- Redeployed `adwuma-pa-inference`.
+- API base URL: `https://createdliving1000--api.modal.run`.
+- `/health` returned HTTP 200.
+- `/analyze` returned HTTP 200 for a translated routine Twi check-in.
+- Qwen model: `Qwen/Qwen2.5-7B-Instruct`.
+- Strict JSON result included `summary`, `concern_level`, `flags`, `sentiment`, `evidence`, `recommended_action`, and `confidence`.
+- Result summary: `The elder reported being well and having eaten.`
+- Result concern level: `0`.
+- Result recommended action: `normal`.
+- No ASR, TTS, or cron endpoints were tested in this session.
+- App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
+
+2026-06-09 TTS validation:
+
+- Redeployed `adwuma-pa-inference`.
+- API base URL: `https://createdliving1000--api.modal.run`.
+- `/speak` returned HTTP 200 for `Me pe se me hwe wo ho.`
+- TTS model: `facebook/mms-tts-aka`.
+- Output audio: WAV payload, 16 kHz, 73,104 base64 characters.
+- No ASR or cron endpoints were tested in this session.
+- App was stopped after validation; `modal app list` showed state `stopped` and `0` tasks.
+
 ## Current Secret Checklist
 
 HF Space:
@@ -116,6 +165,7 @@ PUBLIC_BASE_URL=https://build-small-hackathon-family-care-network.hf.space
 TWILIO_ACCOUNT_SID=<twilio-account-sid>
 TWILIO_AUTH_TOKEN=<twilio-auth-token>
 TWILIO_WHATSAPP_FROM=whatsapp:+14155238886
+ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
 ```
 
 Twilio Sandbox:

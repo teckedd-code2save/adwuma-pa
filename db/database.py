@@ -87,6 +87,15 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
         },
     )
     ensure_columns(conn, "nudges", {"request_id": "TEXT REFERENCES checkup_requests(id)"})
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS app_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT,
+          updated_at TEXT NOT NULL
+        )
+        """
+    )
 
 
 def ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
@@ -396,6 +405,47 @@ def storage_status() -> dict[str, Any]:
         "request_count": request_count,
         "outbound_count": outbound_count,
     }
+
+
+def get_setting(key: str, default: Any = None) -> Any:
+    row = one("SELECT value FROM app_settings WHERE key = ?", (key,))
+    if not row:
+        return default
+    try:
+        return json.loads(row["value"])
+    except Exception:
+        return row["value"]
+
+
+def set_setting(key: str, value: Any) -> None:
+    encoded = json.dumps(value)
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO app_settings (key, value, updated_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+            """,
+            (key, encoded, now_iso()),
+        )
+
+
+def autopilot_settings() -> dict[str, Any]:
+    return {
+        "enabled": bool(get_setting("autopilot.enabled", False)),
+        "scan_interval_minutes": int(get_setting("autopilot.scan_interval_minutes", 360)),
+        "send_whatsapp": bool(get_setting("autopilot.send_whatsapp", False)),
+        "last_scan_at": get_setting("autopilot.last_scan_at", None),
+        "last_scan_result": get_setting("autopilot.last_scan_result", []),
+    }
+
+
+def save_autopilot_settings(enabled: bool, scan_interval_minutes: int, send_whatsapp: bool) -> dict[str, Any]:
+    interval = max(5, int(scan_interval_minutes or 360))
+    set_setting("autopilot.enabled", bool(enabled))
+    set_setting("autopilot.scan_interval_minutes", interval)
+    set_setting("autopilot.send_whatsapp", bool(send_whatsapp))
+    return autopilot_settings()
 
 
 def create_alert(member_id: str, alert_type: str, notes: str) -> str:

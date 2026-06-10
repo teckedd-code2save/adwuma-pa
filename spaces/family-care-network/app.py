@@ -10,7 +10,8 @@ import gradio as gr
 
 from config.models import ASR_CONFIG, LLM_CONFIG, TRANSLATION_CONFIG, TTS_CONFIG, total_parameter_budget_b
 from db import database as db
-from services.relay import dashboard_rows, scan_silence, simulate_nudge
+from services.relay import dashboard_rows, simulate_nudge
+from services.autopilot import autopilot_summary_html, run_autopilot_scan
 from services import modal_client, pipeline, twilio_client
 
 os.environ.setdefault("GRADIO_SSR_MODE", "False")
@@ -342,6 +343,21 @@ select {
 .ap-build-panel ul {
   margin: 8px 0 0;
   padding-left: 18px;
+}
+.ap-autopilot {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  color: #0f172a;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  margin: 10px 0 14px;
+  padding: 12px;
+}
+.ap-autopilot,
+.ap-autopilot * {
+  color: #0f172a !important;
 }
 .ap-section-title {
   color: #0f172a !important;
@@ -691,6 +707,7 @@ details[open] > summary {
 
 def refresh_dashboard():
     return (
+        autopilot_summary_html(),
         status_cards_html(),
         active_requests_html(),
         family_overview_html(),
@@ -1676,6 +1693,26 @@ def install_webhook_routes(server):
     async def debug_storage():
         return db.storage_status()
 
+    @server.post("/api/autopilot/scan")
+    async def api_autopilot_scan(request: Request):
+        db.init_db()
+        expected_secret = os.getenv("ADWUMA_PA_AUTOPILOT_SECRET", "")
+        supplied_secret = request.headers.get("X-Adwuma-Secret", "")
+        if not expected_secret:
+            return Response(
+                content=json.dumps({"status": "disabled", "reason": "ADWUMA_PA_AUTOPILOT_SECRET is not configured."}),
+                status_code=503,
+                media_type="application/json",
+            )
+        if supplied_secret != expected_secret:
+            return Response(
+                content=json.dumps({"status": "forbidden", "reason": "Invalid autopilot secret."}),
+                status_code=403,
+                media_type="application/json",
+            )
+        result = run_autopilot_scan(force=False, actor="scheduled endpoint")
+        return Response(content=json.dumps(result), media_type="application/json")
+
     @server.post("/twilio/whatsapp")
     async def twilio_whatsapp(request: Request, background_tasks: BackgroundTasks):
         raw_body = (await request.body()).decode("utf-8")
@@ -1703,8 +1740,45 @@ def install_webhook_routes(server):
 
 
 def run_silence_scan():
-    actions = scan_silence()
-    return "\n".join(actions), status_cards_html(), active_requests_html(), family_overview_html(), care_routes_html(), alert_overview_html()
+    result = run_autopilot_scan(force=True, actor="Coordinator")
+    return (
+        autopilot_result_text(result),
+        autopilot_summary_html(),
+        status_cards_html(),
+        active_requests_html(),
+        family_overview_html(),
+        care_routes_html(),
+        alert_overview_html(),
+        gr.Dropdown(choices=pending_request_choices()),
+        outbound_table_value(),
+    )
+
+
+def save_autopilot_controls(enabled, scan_interval_minutes, send_whatsapp):
+    settings = db.save_autopilot_settings(enabled, scan_interval_minutes, send_whatsapp)
+    mode = "on" if settings["enabled"] else "off"
+    delivery = "auto-send WhatsApp" if settings["send_whatsapp"] else "queue links only"
+    return (
+        f"Autopilot {mode}. Scan interval: {settings['scan_interval_minutes']} minutes. Delivery: {delivery}.",
+        autopilot_summary_html(),
+    )
+
+
+def autopilot_result_text(result):
+    lines = [f"Status: {result.get('status')}"]
+    if result.get("reason"):
+        lines.append(f"Reason: {result['reason']}")
+    actions = result.get("actions") or []
+    deliveries = result.get("deliveries") or []
+    if actions:
+        lines.append("")
+        lines.append("Actions:")
+        lines.extend(f"- {action}" for action in actions)
+    if deliveries:
+        lines.append("")
+        lines.append("Delivery:")
+        lines.extend(f"- {delivery}" for delivery in deliveries)
+    return "\n".join(lines)
 
 
 def update_escalation_settings(member_id, reminder_minutes, amber_minutes, red_minutes):
@@ -1762,7 +1836,7 @@ def build_notes_html():
   </article>
   <article class="ap-build-panel">
     <h3>Current execution plan</h3>
-    <p>Modal is stopped while not testing. Next live session: enable autopilot scheduling, run one controlled end-to-end loop, then stop Modal again.</p>
+    <p>Modal is stopped while not testing. Autopilot settings are now in the dashboard; next live session is one controlled end-to-end loop with queue-only delivery first, then optional WhatsApp auto-send.</p>
   </article>
 </section>
 """
@@ -1817,10 +1891,19 @@ def build_app():
         with gr.Tabs():
             with gr.Tab("Overview"):
                 gr.HTML(demo_story_html())
+                autopilot_status = gr.HTML(autopilot_summary_html())
+                settings = db.autopilot_settings()
+                with gr.Row():
+                    autopilot_enabled = gr.Checkbox(label="Autopilot enabled", value=settings["enabled"])
+                    autopilot_interval = gr.Number(label="Scan every minutes", value=settings["scan_interval_minutes"], precision=0)
+                    autopilot_send_whatsapp = gr.Checkbox(label="Auto-send WhatsApp links", value=settings["send_whatsapp"])
+                with gr.Row():
+                    save_autopilot_btn = gr.Button("Save autopilot settings")
+                    scan_btn = gr.Button("Run autopilot once", variant="primary")
+                autopilot_output = gr.Textbox(label="Autopilot result", lines=7, interactive=False)
                 status_cards = gr.HTML(status_cards_html())
                 with gr.Row():
                     refresh = gr.Button("Refresh", variant="primary")
-                    scan_btn = gr.Button("Run silence scan now")
                 gr.HTML('<div class="ap-section-title">Active check-ins</div>')
                 requests = gr.HTML(active_requests_html())
                 gr.HTML('<div class="ap-section-title">Family overview</div>')
@@ -1833,7 +1916,6 @@ def build_app():
                     resolution_notes = gr.Textbox(label="What happened", value="Relative checked in and confirmed next action.")
                     resolve_btn = gr.Button("Close most urgent alert")
                 resolve_output = gr.Textbox(label="Closure result", interactive=False)
-                scan_output = gr.Textbox(label="Autopilot result", lines=5, interactive=False)
                 care_routes = gr.HTML(care_routes_html(), visible=False)
 
             with gr.Tab("Family Setup"):
@@ -2010,8 +2092,26 @@ def build_app():
                 gr.HTML(build_notes_html())
                 modal_status = gr.Markdown(modal_health_markdown())
 
-        refresh.click(refresh_dashboard, outputs=[status_cards, requests, family_table, care_routes, alerts, modal_status, budget])
-        scan_btn.click(run_silence_scan, outputs=[scan_output, status_cards, requests, family_table, care_routes, alerts])
+        refresh.click(refresh_dashboard, outputs=[autopilot_status, status_cards, requests, family_table, care_routes, alerts, modal_status, budget])
+        save_autopilot_btn.click(
+            save_autopilot_controls,
+            inputs=[autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
+            outputs=[autopilot_output, autopilot_status],
+        )
+        scan_btn.click(
+            run_silence_scan,
+            outputs=[
+                autopilot_output,
+                autopilot_status,
+                status_cards,
+                requests,
+                family_table,
+                care_routes,
+                alerts,
+                send_request_picker,
+                outbound_messages,
+            ],
+        )
         load_request.click(
             load_request_context,
             inputs=[request_token],

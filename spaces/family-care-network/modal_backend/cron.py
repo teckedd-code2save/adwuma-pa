@@ -13,7 +13,8 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install("requests")
 
 @app.function(
     image=image,
-    schedule=modal.Cron("0 */6 * * *", timezone="Africa/Accra"),
+    secrets=[modal.Secret.from_name("adwuma-pa-autopilot")],
+    schedule=modal.Cron("*/15 * * * *", timezone="Africa/Accra"),
     min_containers=0,
     max_containers=1,
     buffer_containers=0,
@@ -24,8 +25,8 @@ def autopilot_scan() -> dict:
     """
     Deploy this only for final validation/demo.
 
-    During normal development, run the dashboard "Run silence scan now" button instead so
-    Modal cron is not consuming any of the $50 credit budget.
+    During normal development, keep this undeployed and use the dashboard button instead.
+    The Space owns the real scan interval and skips work until its configured cadence is due.
     """
     base_url = os.getenv("ADWUMA_PA_SPACE_URL", "").rstrip("/")
     secret = os.getenv("ADWUMA_PA_AUTOPILOT_SECRET", "")
