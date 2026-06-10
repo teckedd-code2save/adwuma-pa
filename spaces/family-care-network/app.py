@@ -732,9 +732,11 @@ def refresh_dashboard():
         operations_status_html(),
         status_cards_html(),
         active_requests_html(),
+        recent_responses_html(),
         family_overview_html(),
         care_routes_html(),
         alert_overview_html(),
+        gr.Dropdown(choices=alert_choices()),
         modal_health_markdown(),
         model_budget_markdown(),
     )
@@ -1050,6 +1052,27 @@ def alert_rows():
     )
 
 
+def alert_choices():
+    rows = db.rows(
+        """
+        SELECT a.id, m.name, a.alert_type, a.created_at
+        FROM alerts a
+        JOIN members m ON m.id = a.member_id
+        WHERE a.resolved = 0
+        ORDER BY
+          CASE
+            WHEN a.alert_type LIKE 'red%' THEN 0
+            WHEN a.alert_type LIKE 'amber%' THEN 1
+            WHEN a.alert_type LIKE 'reminder%' THEN 2
+            ELSE 3
+          END,
+          a.created_at DESC
+        LIMIT 30
+        """
+    )
+    return [(f"{row['name']} - {row['alert_type']} - {row['created_at']}", row["id"]) for row in rows]
+
+
 def open_loop_rows():
     return db.rows(
         """
@@ -1147,6 +1170,68 @@ def member_checkin_rows(member_id):
         (member_id,),
     )
     return table_value(rows, CHECKIN_HEADERS)
+
+
+def recent_responses_html(limit=8):
+    inbound = db.rows(
+        """
+        SELECT created_at, sender, body, status
+        FROM inbound_messages
+        ORDER BY created_at DESC
+        LIMIT 5
+        """
+    )
+    rows = db.rows(
+        """
+        SELECT c.submitted_at, c.source, c.input_type, c.analysis_status, c.concern_level,
+               c.summary, c.translation, c.transcript, c.raw_input, c.processing_error,
+               m.name,
+               r.reason_code,
+               r.request_type
+        FROM checkins c
+        JOIN members m ON m.id = c.member_id
+        LEFT JOIN checkup_requests r ON r.id = c.request_id
+        ORDER BY c.submitted_at DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    if not rows and not inbound:
+        return '<div class="ap-empty">No responses received yet.</div>'
+    cards = []
+    for row in inbound:
+        cards.append(
+            f"""
+            <article class="ap-item">
+              <div>
+                <div class="ap-item-title">Inbound WhatsApp</div>
+                <div class="ap-item-meta">{esc(row['created_at'])} · {esc(row['status'])} · {esc(row['sender'])}</div>
+                <div class="ap-item-note"><strong>Raw message:</strong> {esc(row['body'])}</div>
+              </div>
+            </article>
+            """
+        )
+    for row in rows:
+        concern = "" if row["concern_level"] is None else f" · concern {row['concern_level']}"
+        translation = row.get("translation") or ""
+        transcript = row.get("transcript") or row.get("raw_input") or ""
+        error = row.get("processing_error") or ""
+        cards.append(
+            f"""
+            <article class="ap-item">
+              <div>
+                <div class="ap-item-title">{esc(row['name'])}</div>
+                <div class="ap-item-meta">{esc(row['submitted_at'])} · {esc(row['source'])} · {esc(row['analysis_status'])}{esc(concern)}</div>
+                <div class="ap-item-note"><strong>Request:</strong> {esc(friendly_reason(row.get('reason_code')))} · {esc(row.get('request_type') or 'direct')}</div>
+                <div class="ap-item-note"><strong>Summary:</strong> {esc(row.get('summary') or 'No summary yet.')}</div>
+                <div class="ap-item-note"><strong>Transcript:</strong> {esc(transcript or 'No transcript saved.')}</div>
+                <div class="ap-item-note"><strong>Translation:</strong> {esc(translation or 'English input or translation unavailable.')}</div>
+                {f'<div class="ap-item-note"><strong>Error:</strong> {esc(error)}</div>' if error else ''}
+              </div>
+            </article>
+            """
+        )
+    return '<section class="ap-list">' + "\n".join(cards) + "</section>"
 
 
 def member_alert_rows(member_id):
@@ -1417,6 +1502,8 @@ def submit_checkin_by_token(token, language, text, audio, input_mode, source):
         family_overview_html(),
         care_routes_html(),
         alert_overview_html(),
+        recent_responses_html(),
+        gr.Dropdown(choices=alert_choices()),
     )
 
 
@@ -1439,12 +1526,18 @@ def checkin_receipt(result):
     )
 
 
-def resolve_first_open_alert(resolved_by, notes):
-    alert = db.one("SELECT id FROM alerts WHERE resolved = 0 ORDER BY created_at DESC LIMIT 1")
-    if not alert:
-        return "No open alerts.", alert_overview_html(), family_overview_html(), care_routes_html(), status_cards_html()
-    db.resolve_alert(alert["id"], resolved_by or "Coordinator", notes or "Loop closed.")
-    return f"Resolved {alert['id']}.", alert_overview_html(), family_overview_html(), care_routes_html(), status_cards_html()
+def resolve_selected_alert(alert_id, resolved_by, notes):
+    if not alert_id:
+        raise gr.Error("Choose the alert or case to resolve.")
+    db.resolve_alert(alert_id, resolved_by or "Coordinator", notes or "Loop closed.")
+    return (
+        f"Resolved {alert_id}.",
+        alert_overview_html(),
+        gr.Dropdown(choices=alert_choices(), value=None),
+        family_overview_html(),
+        care_routes_html(),
+        status_cards_html(),
+    )
 
 
 def nudge(member_id):
@@ -1470,9 +1563,11 @@ def create_manual_request(member_id, reason_code, reason_detail, request_type, p
         f"Created secure check-in link:\n\n`/checkin/{request['token']}`",
         status_cards_html(),
         active_requests_html(),
+        recent_responses_html(),
         family_overview_html(),
         care_routes_html(),
         alert_overview_html(),
+        gr.Dropdown(choices=alert_choices()),
         gr.Dropdown(choices=pending_request_choices()),
     )
 
@@ -1506,9 +1601,11 @@ def send_checkin_whatsapp(request_id):
         operations_status_html(),
         status_cards_html(),
         active_requests_html(),
+        recent_responses_html(),
         family_overview_html(),
         care_routes_html(),
         alert_overview_html(),
+        gr.Dropdown(choices=alert_choices()),
         outbound_table_value(),
         choices,
     )
@@ -1808,9 +1905,11 @@ def run_silence_scan():
         operations_status_html(),
         status_cards_html(),
         active_requests_html(),
+        recent_responses_html(),
         family_overview_html(),
         care_routes_html(),
         alert_overview_html(),
+        gr.Dropdown(choices=alert_choices()),
         gr.Dropdown(choices=pending_request_choices()),
         outbound_table_value(),
     )
@@ -2003,6 +2102,8 @@ def build_app():
                     refresh = gr.Button("Refresh", variant="primary")
                 gr.HTML('<div class="ap-section-title">Active check-ins</div>')
                 requests = gr.HTML(active_requests_html())
+                gr.HTML('<div class="ap-section-title">Recent responses</div>')
+                recent_responses = gr.HTML(recent_responses_html())
                 gr.HTML('<div class="ap-section-title">Family overview</div>')
                 family_table = gr.HTML(family_overview_html())
                 gr.HTML('<div class="ap-section-title">Autopilot relative routes</div>')
@@ -2010,6 +2111,7 @@ def build_app():
                 gr.HTML('<div class="ap-section-title">Alerts and reviews</div>')
                 alerts = gr.HTML(alert_overview_html())
                 with gr.Accordion("Resolve an alert", open=False):
+                    alert_picker = gr.Dropdown(choices=alert_choices(), label="Alert or case")
                     with gr.Row():
                         resolved_by = gr.Textbox(label="Confirmed by", value="")
                         resolution_notes = gr.Textbox(label="What happened", value="")
@@ -2200,9 +2302,11 @@ def build_app():
                 operations_status,
                 status_cards,
                 requests,
+                recent_responses,
                 family_table,
                 care_routes,
                 alerts,
+                alert_picker,
                 modal_status,
                 budget,
             ],
@@ -2220,9 +2324,11 @@ def build_app():
                 operations_status,
                 status_cards,
                 requests,
+                recent_responses,
                 family_table,
                 care_routes,
                 alerts,
+                alert_picker,
                 send_request_picker,
                 outbound_messages,
             ],
@@ -2235,18 +2341,22 @@ def build_app():
         submit.click(
             submit_checkin_by_token,
             inputs=[request_token, language, text, voice_audio, input_mode, source_state],
-            outputs=[receipt, ai_json, status_cards, requests, family_table, care_routes, alerts],
+            outputs=[receipt, ai_json, status_cards, requests, family_table, care_routes, alerts, recent_responses, alert_picker],
         )
-        resolve_btn.click(resolve_first_open_alert, inputs=[resolved_by, resolution_notes], outputs=[resolve_output, alerts, family_table, care_routes, status_cards])
+        resolve_btn.click(
+            resolve_selected_alert,
+            inputs=[alert_picker, resolved_by, resolution_notes],
+            outputs=[resolve_output, alerts, alert_picker, family_table, care_routes, status_cards],
+        )
         create_request_btn.click(
             create_manual_request,
             inputs=[request_member_picker, manual_reason, manual_detail, manual_type, manual_priority],
-            outputs=[create_request_output, status_cards, requests, family_table, care_routes, alerts, send_request_picker],
+            outputs=[create_request_output, status_cards, requests, recent_responses, family_table, care_routes, alerts, alert_picker, send_request_picker],
         )
         send_whatsapp_btn.click(
             send_checkin_whatsapp,
             inputs=[send_request_picker],
-            outputs=[send_whatsapp_output, operations_status, status_cards, requests, family_table, care_routes, alerts, outbound_messages, send_request_picker],
+            outputs=[send_whatsapp_output, operations_status, status_cards, requests, recent_responses, family_table, care_routes, alerts, alert_picker, outbound_messages, send_request_picker],
         )
         nudge_btn.click(nudge, inputs=[relay_member], outputs=[nudge_output])
         generate_tts_prompt.click(build_tts_prompt, inputs=[tts_member, tts_prompt_type, tts_language], outputs=[tts_text])
