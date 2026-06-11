@@ -5,6 +5,7 @@ import html
 import io
 import json
 import os
+import re
 from urllib.parse import parse_qs
 
 from fastapi import BackgroundTasks, FastAPI, Request, Response
@@ -730,11 +731,57 @@ CUSTOM_CSS += """
 }
 .ap-cockpit-main,
 .ap-cockpit-side,
+.ap-action-panel,
 .ap-composer-shell {
   background: #ffffff;
   border: 1px solid #64748b;
   border-radius: 8px;
   padding: 14px;
+}
+.ap-action-row {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin: 10px 0 16px;
+}
+.ap-action-panel {
+  min-width: 0;
+}
+.ap-panel-title {
+  color: #0f172a !important;
+  font-size: 16px;
+  font-weight: 900;
+  margin-bottom: 10px;
+}
+.ap-runbook {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  margin: 10px 0;
+}
+.ap-runbook article {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  padding: 12px;
+}
+.ap-runbook strong {
+  color: #0f172a !important;
+  display: block;
+  font-size: 13px;
+  margin-bottom: 8px;
+}
+.ap-runbook code {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a !important;
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  padding: 8px;
+  white-space: pre-wrap;
 }
 .ap-cockpit-title {
   color: #0f172a !important;
@@ -921,6 +968,7 @@ CUSTOM_CSS += """
 }
 @media (max-width: 980px) {
   .ap-cockpit,
+  .ap-action-row,
   .ap-autopilot-strip {
     grid-template-columns: 1fr;
   }
@@ -1047,6 +1095,54 @@ def human_alert_label(alert_type):
     return (alert_type or "Open case").replace("_", " ").title()
 
 
+def humanize_legacy_text(value, member_name=None):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    person = member_name or "this person"
+
+    def missed_urgent(match):
+        return f"We have not heard from {person} for {match.group(1).strip()}. This needs urgent follow-up."
+
+    def missed_attention(match):
+        return f"We have not heard from {person} for {match.group(1).strip()}. Please check soon."
+
+    text = re.sub(r"No check-in for ([^;]+);\s*red threshold is [^.]+\.?", missed_urgent, text, flags=re.I)
+    text = re.sub(r"No check-in for ([^;]+);\s*amber threshold is [^.]+\.?", missed_attention, text, flags=re.I)
+    text = re.sub(
+        r"Ask ([^(]+)\(([^)]+)\) to check on (.+?) after red silence\.?",
+        lambda m: f"Ask {m.group(1).strip()} to check on {m.group(3).strip()} and send a short update.",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"Ask ([^(]+)\(([^)]+)\) to check on (.+?) after amber silence\.?",
+        lambda m: f"Ask {m.group(1).strip()} to check on {m.group(3).strip()} and send an update soon.",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        r"Concern score (\d+) from latest check-in\.?",
+        "Latest reply was flagged for follow-up, but this older case does not include evidence text. Open the person timeline and recent update before acting.",
+        text,
+        flags=re.I,
+    )
+    replacements = {
+        "red threshold": "urgent follow-up window",
+        "amber threshold": "check-soon window",
+        "red silence": "urgent missed check-in",
+        "amber silence": "missed check-in",
+        "emergency_contact": "emergency contact",
+        "primary_coordinator": "primary coordinator",
+        "backup_coordinator": "backup coordinator",
+        "first_party_contact": "first-party contact",
+        "nearby_relative": "nearby relative",
+    }
+    for old, new in replacements.items():
+        text = text.replace(old, new)
+    return text
+
+
 def attention_sort_key(row):
     alert_type = (row.get("Type") or "").lower()
     if "red" in alert_type:
@@ -1100,7 +1196,7 @@ def attention_queue_html(limit=6):
     cards = []
     for row in open_alerts:
         label = human_alert_label(row["Type"])
-        notes = alert_note_html(row["Notes"])
+        notes = alert_note_html(humanize_legacy_text(row["Notes"], row["Member"]))
         cards.append(
             f"""
             <article class="ap-case-card ap-{case_class(row['Type'])}">
@@ -1186,13 +1282,14 @@ def person_timeline_html(member_id=None, limit=12):
         elif event["kind"] == "request":
             title = "Check-in requested"
             meta = f"{friendly_reason(event['reason_code'])} · {human_priority_label(event['priority'])} · {event['status']}"
-            body = event.get("reason_detail") or "Family check-in requested."
+            body = humanize_legacy_text(event.get("reason_detail"), member["name"]) or "Family check-in requested."
             detail = f"/checkin/{event['token']}"
         else:
             title = human_alert_label(event["alert_type"])
             meta = "Closed" if event.get("resolved") else "Open"
-            body = first_note_line(event.get("notes") or "")
-            detail = event.get("notes") or ""
+            normalized_notes = humanize_legacy_text(event.get("notes"), member["name"])
+            body = first_note_line(normalized_notes)
+            detail = normalized_notes
         rendered.append(
             f"""
             <article class="ap-timeline-event">
@@ -1220,6 +1317,31 @@ def person_timeline_html(member_id=None, limit=12):
 def first_note_line(notes):
     lines = [line.strip() for line in (notes or "").splitlines() if line.strip()]
     return lines[0] if lines else "Family case opened."
+
+
+def system_runbook_html():
+    modal_url = modal_client.modal_base_url() or "<modal-web-base-url>"
+    return f"""
+<section class="ap-runbook">
+  <article>
+    <strong>Start inference</strong>
+    <code>modal deploy modal_backend/adwuma_modal.py</code>
+  </article>
+  <article>
+    <strong>Connect Space</strong>
+    <code>hf spaces variables set build-small-hackathon/family-care-network MODAL_API_BASE_URL={esc(modal_url)}</code>
+  </article>
+  <article>
+    <strong>Start cron</strong>
+    <code>modal deploy modal_backend/cron.py</code>
+  </article>
+  <article>
+    <strong>Stop after testing</strong>
+    <code>modal app stop ani-kese-inference --yes && modal app stop ani-kese-cron --yes</code>
+  </article>
+</section>
+<div class="ap-note">Autopilot can be paused from this app. Modal start/stop stays outside the public Space so billing controls are not exposed to visitors.</div>
+"""
 
 
 def human_duration_for_ui(minutes):
@@ -1296,7 +1418,7 @@ def active_requests_html(limit=8):
     cards = []
     for row in rows:
         priority = row["priority"] or "routine"
-        detail = row["reason_detail"] or friendly_reason(row["reason_code"])
+        detail = humanize_legacy_text(row["reason_detail"], row["name"]) or friendly_reason(row["reason_code"])
         link = f"/checkin/{row['token']}"
         is_report = row["request_type"] == "field_report"
         label = "Relative update" if is_report else "Family check-in"
@@ -1309,12 +1431,12 @@ def active_requests_html(limit=8):
             f"""
             <article class="ap-item ap-{priority}">
               <div>
-                <div class="ap-item-title">{row['name']}</div>
-                <div class="ap-item-meta">{label} · {friendly_reason(row['reason_code'])} · {row['status']}</div>
+                <div class="ap-item-title">{esc(row['name'])}</div>
+                <div class="ap-item-meta">{esc(label)} · {esc(friendly_reason(row['reason_code']))} · {esc(row['status'])}</div>
                 <div class="ap-item-note"><strong>Expected responder:</strong> {esc(responder)}</div>
-                <div class="ap-item-note">{detail}</div>
+                <div class="ap-item-note">{esc(detail)}</div>
               </div>
-              <code>{link}</code>
+              <code>{esc(link)}</code>
             </article>
             """
         )
@@ -2621,11 +2743,85 @@ def build_app():
                         gr.HTML('<div class="ap-section-title">Recent updates</div>')
                         recent_responses = gr.HTML(recent_responses_html())
 
+                source_state = gr.State("self")
+                gr.HTML('<div class="ap-section-title">Care actions</div>')
+                with gr.Row(elem_classes=["ap-action-row"]):
+                    with gr.Column(scale=1, elem_classes=["ap-action-panel"]):
+                        gr.HTML('<div class="ap-panel-title">Send a check-in</div>')
+                        request_member_picker = gr.Dropdown(choices=member_choices(), label="Person to check on")
+                        with gr.Row():
+                            manual_type = gr.Dropdown(
+                                choices=[("Ask this person directly", "elder_checkin"), ("Ask a relative for an update", "field_report")],
+                                value="elder_checkin",
+                                label="Who should answer",
+                            )
+                            manual_priority = gr.Dropdown(
+                                choices=[("Routine", "routine"), ("Please check soon", "amber"), ("Needs urgent follow-up", "red")],
+                                value="routine",
+                                label="Care level",
+                            )
+                        manual_reason = gr.Dropdown(
+                            choices=[
+                                ("Coordinator request", "coordinator_request"),
+                                ("Routine check", "routine_check"),
+                                ("Time to check in", "reminder_silence"),
+                                ("Please check soon", "amber_silence"),
+                                ("Needs urgent follow-up", "red_silence"),
+                            ],
+                            value="coordinator_request",
+                            label="Reason",
+                        )
+                        manual_detail = gr.Textbox(label="Message", lines=3, value="Please send a short update so the family knows how you are doing.")
+                        with gr.Row():
+                            create_request_btn = gr.Button("Create link", variant="primary")
+                            send_whatsapp_btn = gr.Button("Send by WhatsApp", variant="primary")
+                        create_request_output = gr.Markdown()
+                        send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending request")
+                        send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
+                    with gr.Column(scale=1, elem_classes=["ap-action-panel"]):
+                        gr.HTML('<div class="ap-panel-title">Save a reply</div>')
+                        with gr.Row():
+                            request_token = gr.Textbox(label="Check-in link", placeholder="/checkin/...")
+                            load_request = gr.Button("Find", variant="primary")
+                        request_context = gr.Markdown("Find the request, then type or record the update in one place.")
+                        with gr.Row():
+                            request_member = gr.Textbox(label="Person checked on", interactive=False)
+                            request_reason = gr.Textbox(label="Reason", interactive=False)
+                        with gr.Group(elem_classes=["ap-composer-shell"]):
+                            text = gr.Textbox(
+                                label="Update",
+                                lines=4,
+                                placeholder="Type the update here, or record voice below.",
+                            )
+                            voice_audio = gr.Audio(
+                                sources=["microphone", "upload"],
+                                type="numpy",
+                                label="Record voice",
+                            )
+                            with gr.Row():
+                                language = gr.Dropdown(
+                                    choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
+                                    value="twi",
+                                    label="Language",
+                                )
+                                input_mode = gr.Radio([("Text", "text"), ("Voice", "voice")], value="text", label="Send as")
+                            submit = gr.Button("Send update", variant="primary")
+                        receipt = gr.Textbox(label="Result", interactive=False, lines=2)
+                        ai_json = gr.Code(label="Care processing result", language="json", visible=False)
+                        with gr.Accordion("Review translation", open=False):
+                            translation_checkin = gr.Dropdown(choices=recent_checkin_choices(), label="Response")
+                            load_translation = gr.Button("Load response")
+                            translation_original = gr.Textbox(label="Original / transcript", lines=3, interactive=False)
+                            translation_edit = gr.Textbox(label="Corrected English translation", lines=3)
+                            translation_summary = gr.Textbox(label="Current summary", lines=2, interactive=False)
+                            translation_review_output = gr.Textbox(label="Translation review", interactive=False)
+                            save_translation = gr.Button("Save corrected translation", variant="primary")
+
                 gr.HTML('<div class="ap-section-title">Person timeline</div>')
                 timeline_member = gr.Dropdown(choices=member_choices(), label="Open a person")
                 member_timeline = gr.HTML(person_timeline_html(None))
 
-            with gr.Tab("Family Setup"):
+            with gr.Tab("Family"):
                 member_storage = gr.HTML(storage_status_html())
                 with gr.Accordion("Add family member", open=True):
                     with gr.Row():
@@ -2696,114 +2892,6 @@ def build_app():
                         member_alerts = gr.Dataframe(headers=ALERT_HEADERS, value=[], label="Member alerts", interactive=False, wrap=True)
                         member_nudges = gr.Dataframe(headers=NUDGE_HEADERS, value=[], label="Nudge history", interactive=False, wrap=True)
 
-            with gr.Tab("Care Loop"):
-                source_state = gr.State("self")
-                with gr.Row():
-                    with gr.Column(scale=1):
-                        gr.HTML('<div class="ap-section-title">Send a check-in</div>')
-                        request_member_picker = gr.Dropdown(choices=member_choices(), label="Person to check on")
-                        with gr.Row():
-                            manual_type = gr.Dropdown(
-                                choices=[("Ask this person directly", "elder_checkin"), ("Ask a relative for an update", "field_report")],
-                                value="elder_checkin",
-                                label="Who should answer",
-                            )
-                            manual_priority = gr.Dropdown(
-                                choices=[("Routine", "routine"), ("Needs attention", "amber"), ("Urgent follow-up", "red")],
-                                value="routine",
-                                label="Care level",
-                            )
-                        manual_reason = gr.Dropdown(
-                            choices=[
-                                ("Coordinator request", "coordinator_request"),
-                                ("Routine check", "routine_check"),
-                                ("Time to check in", "reminder_silence"),
-                                ("Needs attention", "amber_silence"),
-                                ("Urgent follow-up", "red_silence"),
-                            ],
-                            value="coordinator_request",
-                            label="Reason",
-                        )
-                        manual_detail = gr.Textbox(label="Message", lines=3, value="Please send a short update so the family knows how you are doing.")
-                        create_request_btn = gr.Button("Create secure link", variant="primary")
-                        create_request_output = gr.Markdown()
-                        twilio_status = gr.Markdown(twilio_status_markdown())
-                        send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending request")
-                        send_whatsapp_btn = gr.Button("Send selected link by WhatsApp", variant="primary")
-                        send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
-                    with gr.Column(scale=1):
-                        gr.HTML('<div class="ap-section-title">Save an update</div>')
-                        with gr.Row():
-                            request_token = gr.Textbox(label="Check-in link", placeholder="/checkin/...")
-                            load_request = gr.Button("Find", variant="primary")
-                        request_context = gr.Markdown("Find the request, then type or record the update in one place.")
-                        with gr.Row():
-                            request_member = gr.Textbox(label="Person checked on", interactive=False)
-                            request_reason = gr.Textbox(label="Reason", interactive=False)
-                        with gr.Group(elem_classes=["ap-composer-shell"]):
-                            text = gr.Textbox(
-                                label="Update",
-                                lines=5,
-                                placeholder="Type the update here, or record voice below.",
-                            )
-                            voice_audio = gr.Audio(
-                                sources=["microphone", "upload"],
-                                type="numpy",
-                                label="Record voice",
-                            )
-                            with gr.Row():
-                                language = gr.Dropdown(
-                                    choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
-                                    value="twi",
-                                    label="Language",
-                                )
-                                input_mode = gr.Radio([("Text", "text"), ("Voice", "voice")], value="text", label="Send as")
-                            submit = gr.Button("Send update", variant="primary")
-                        receipt = gr.Textbox(label="Result", interactive=False, lines=2)
-                        ai_json = gr.Code(label="Care processing result", language="json", visible=False)
-                        with gr.Accordion("Review translation", open=False):
-                            translation_checkin = gr.Dropdown(choices=recent_checkin_choices(), label="Response")
-                            load_translation = gr.Button("Load response")
-                            translation_original = gr.Textbox(label="Original / transcript", lines=3, interactive=False)
-                            translation_edit = gr.Textbox(label="Corrected English translation", lines=3)
-                            translation_summary = gr.Textbox(label="Current summary", lines=2, interactive=False)
-                            translation_review_output = gr.Textbox(label="Translation review", interactive=False)
-                            save_translation = gr.Button("Save corrected translation", variant="primary")
-
-                with gr.Accordion("Loop tools and settings", open=False):
-                    with gr.Row():
-                        relay_member = gr.Dropdown(choices=member_choices(), label="Person needing follow-up")
-                        nudge_btn = gr.Button("Draft relative nudge", variant="primary")
-                    nudge_output = gr.Textbox(label="WhatsApp nudge draft", lines=4, interactive=False)
-                    gr.HTML('<div class="ap-section-title">Escalation timing</div>')
-                    policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
-                    with gr.Row():
-                        reminder_minutes = gr.Number(label="Reminder after minutes", value=10080, precision=0)
-                        amber_minutes = gr.Number(label="Needs attention after minutes", value=14400, precision=0)
-                        red_minutes = gr.Number(label="Urgent follow-up after minutes", value=20160, precision=0)
-                    policy_btn = gr.Button("Save escalation policy", variant="primary")
-                    policy_output = gr.Textbox(label="Policy update", interactive=False)
-                    gr.HTML('<div class="ap-section-title">TTS prompt check</div>')
-                    with gr.Row():
-                        tts_member = gr.Dropdown(choices=member_choices(), label="Family member")
-                        tts_language = gr.Dropdown(
-                            choices=[("Twi/Akan", "twi"), ("Fante/Akan", "fat"), ("English", "eng")],
-                            value="twi",
-                            label="TTS language",
-                        )
-                        tts_prompt_type = gr.Dropdown(choices=TTS_PROMPT_TYPES, value="reminder", label="Prompt type")
-                    tts_text = gr.Textbox(label="Prompt text", lines=3)
-                    with gr.Row():
-                        generate_tts_prompt = gr.Button("Generate prompt text")
-                        synthesize_tts = gr.Button("Synthesize prompt", variant="primary")
-                    tts_audio = gr.Audio(label="Generated prompt audio", type="numpy")
-                    tts_status = gr.Textbox(label="TTS status", interactive=False)
-                    with gr.Accordion("Delivery log and data controls", open=True):
-                        outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
-                        gr.Markdown("Production data starts empty. This only clears records; it never loads dummy data.")
-                        clear_data_btn = gr.Button("Clear all data", variant="stop")
-                        admin_output = gr.Textbox(label="Admin action", interactive=False)
-
             with gr.Tab("Settings"):
                 settings = db.autopilot_settings()
                 gr.HTML('<div class="ap-section-title">Autopilot settings</div>')
@@ -2828,13 +2916,46 @@ def build_app():
                 gr.HTML('<div class="ap-section-title">Care links</div>')
                 care_routes = gr.HTML(care_routes_html())
 
+                with gr.Accordion("Care policy and utilities", open=False):
+                    with gr.Row():
+                        relay_member = gr.Dropdown(choices=member_choices(), label="Person needing follow-up")
+                        nudge_btn = gr.Button("Draft relative nudge", variant="primary")
+                    nudge_output = gr.Textbox(label="WhatsApp nudge draft", lines=4, interactive=False)
+                    gr.HTML('<div class="ap-section-title">Escalation timing</div>')
+                    policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
+                    with gr.Row():
+                        reminder_minutes = gr.Number(label="Reminder after minutes", value=10080, precision=0)
+                        amber_minutes = gr.Number(label="Please check soon after minutes", value=14400, precision=0)
+                        red_minutes = gr.Number(label="Urgent follow-up after minutes", value=20160, precision=0)
+                    policy_btn = gr.Button("Save escalation policy", variant="primary")
+                    policy_output = gr.Textbox(label="Policy update", interactive=False)
+                    gr.HTML('<div class="ap-section-title">TTS prompt check</div>')
+                    with gr.Row():
+                        tts_member = gr.Dropdown(choices=member_choices(), label="Family member")
+                        tts_language = gr.Dropdown(
+                            choices=[("Twi/Akan", "twi"), ("Fante/Akan", "fat"), ("English", "eng")],
+                            value="twi",
+                            label="TTS language",
+                        )
+                        tts_prompt_type = gr.Dropdown(choices=TTS_PROMPT_TYPES, value="reminder", label="Prompt type")
+                    tts_text = gr.Textbox(label="Prompt text", lines=3)
+                    with gr.Row():
+                        generate_tts_prompt = gr.Button("Generate prompt text")
+                        synthesize_tts = gr.Button("Synthesize prompt", variant="primary")
+                    tts_audio = gr.Audio(label="Generated prompt audio", type="numpy")
+                    tts_status = gr.Textbox(label="TTS status", interactive=False)
+
                 gr.HTML('<div class="ap-section-title">System status</div>')
                 operations_status = gr.HTML(operations_status_html())
                 budget = gr.HTML(model_budget_markdown())
                 modal_status = gr.Markdown(modal_health_markdown())
-
-            with gr.Tab("Build Notes"):
-                gr.HTML(build_notes_html())
+                gr.HTML('<div class="ap-section-title">Startup and shutdown</div>')
+                gr.HTML(system_runbook_html())
+                with gr.Accordion("Delivery log and data controls", open=False):
+                    outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
+                    gr.Markdown("Production data starts empty. This only clears records; it never loads dummy data.")
+                    clear_data_btn = gr.Button("Clear all data", variant="stop")
+                    admin_output = gr.Textbox(label="Admin action", interactive=False)
 
         refresh.click(
             refresh_dashboard,
