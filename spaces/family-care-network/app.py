@@ -2594,28 +2594,8 @@ def build_app():
             """
         )
 
-        budget = gr.HTML(model_budget_markdown())
-
         with gr.Tabs():
             with gr.Tab("Overview"):
-                settings = db.autopilot_settings()
-                gr.HTML('<div class="ap-section-title">Autopilot</div>')
-                with gr.Row():
-                    autopilot_enabled = gr.Dropdown(
-                        choices=[("On", True), ("Off", False)],
-                        label="Autopilot",
-                        value=settings["enabled"],
-                    )
-                    autopilot_interval = gr.Number(label="Scan every minutes", value=settings["scan_interval_minutes"], precision=0)
-                    autopilot_send_whatsapp = gr.Dropdown(
-                        choices=[("Queue links only", False), ("Auto-send WhatsApp", True)],
-                        label="WhatsApp delivery",
-                        value=settings["send_whatsapp"],
-                    )
-                    save_autopilot_btn = gr.Button("Save autopilot settings")
-                    scan_btn = gr.Button("Run autopilot once", variant="primary")
-                autopilot_status = gr.HTML(autopilot_summary_html())
-                autopilot_output = gr.Textbox(label="Autopilot result", lines=2, interactive=False)
                 status_cards = gr.HTML(status_cards_html())
                 with gr.Row():
                     refresh = gr.Button("Refresh", variant="primary", scale=0)
@@ -2644,13 +2624,6 @@ def build_app():
                 gr.HTML('<div class="ap-section-title">Person timeline</div>')
                 timeline_member = gr.Dropdown(choices=member_choices(), label="Open a person")
                 member_timeline = gr.HTML(person_timeline_html(None))
-                operations_status = gr.HTML(operations_status_html(), visible=False)
-                care_routes = gr.HTML(care_routes_html(), visible=False)
-
-                with gr.Accordion("Care links and system status", open=False):
-                    visible_routes = gr.HTML(care_routes_html())
-                    visible_operations = gr.HTML(operations_status_html())
-                    visible_budget = gr.HTML(model_budget_markdown())
 
             with gr.Tab("Family Setup"):
                 member_storage = gr.HTML(storage_status_html())
@@ -2831,9 +2804,37 @@ def build_app():
                         clear_data_btn = gr.Button("Clear all data", variant="stop")
                         admin_output = gr.Textbox(label="Admin action", interactive=False)
 
+            with gr.Tab("Settings"):
+                settings = db.autopilot_settings()
+                gr.HTML('<div class="ap-section-title">Autopilot settings</div>')
+                with gr.Row():
+                    autopilot_enabled = gr.Dropdown(
+                        choices=[("On", True), ("Off", False)],
+                        label="Autopilot",
+                        value=settings["enabled"],
+                    )
+                    autopilot_interval = gr.Number(label="Scan every minutes", value=settings["scan_interval_minutes"], precision=0)
+                    autopilot_send_whatsapp = gr.Dropdown(
+                        choices=[("Queue links only", False), ("Auto-send WhatsApp", True)],
+                        label="WhatsApp delivery",
+                        value=settings["send_whatsapp"],
+                    )
+                with gr.Row():
+                    save_autopilot_btn = gr.Button("Save autopilot settings")
+                    scan_btn = gr.Button("Run scan now", variant="primary")
+                autopilot_status = gr.HTML(autopilot_summary_html())
+                autopilot_output = gr.Textbox(label="Last scan result", lines=4, interactive=False)
+
+                gr.HTML('<div class="ap-section-title">Care links</div>')
+                care_routes = gr.HTML(care_routes_html())
+
+                gr.HTML('<div class="ap-section-title">System status</div>')
+                operations_status = gr.HTML(operations_status_html())
+                budget = gr.HTML(model_budget_markdown())
+                modal_status = gr.Markdown(modal_health_markdown())
+
             with gr.Tab("Build Notes"):
                 gr.HTML(build_notes_html())
-                modal_status = gr.Markdown(modal_health_markdown())
 
         refresh.click(
             refresh_dashboard,
