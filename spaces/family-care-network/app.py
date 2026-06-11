@@ -1107,8 +1107,12 @@ def humanize_legacy_text(value, member_name=None):
     def missed_attention(match):
         return f"We have not heard from {person} for {match.group(1).strip()}. Please check soon."
 
+    def missed_reminder(match):
+        return f"{person} is due for a routine check-in."
+
     text = re.sub(r"No check-in for ([^;.]+)[.;]\s*red threshold is [^.]+\.?", missed_urgent, text, flags=re.I)
     text = re.sub(r"No check-in for ([^;.]+)[.;]\s*amber threshold is [^.]+\.?", missed_attention, text, flags=re.I)
+    text = re.sub(r"No check-in for ([^;.]+)[.;]\s*reminder threshold is [^.]+\.?", missed_reminder, text, flags=re.I)
     text = re.sub(
         r"Ask ([^(]+)\(([^)]+)\) to check on (.+?) after red silence\.?",
         lambda m: f"Ask {m.group(1).strip()} to check on {m.group(3).strip()} and send a short update.",
@@ -1130,6 +1134,7 @@ def humanize_legacy_text(value, member_name=None):
     replacements = {
         "red threshold": "urgent follow-up window",
         "amber threshold": "check-soon window",
+        "reminder threshold": "routine check-in window",
         "red silence": "urgent missed check-in",
         "amber silence": "missed check-in",
         "emergency_contact": "emergency contact",
