@@ -3,7 +3,6 @@ from __future__ import annotations
 import json
 from collections import Counter
 from datetime import datetime, timezone
-from functools import lru_cache
 from pathlib import Path
 from typing import Any
 
@@ -48,23 +47,38 @@ LANGUAGE_CODES = {
 }
 
 VOTES_PATH = Path("community_votes.jsonl")
+_LOADED_MODEL_NAME: str | None = None
+_LOADED_MODEL: tuple[Any, Any, str] | None = None
 
 
-@lru_cache(maxsize=4)
 def load_model(model_name: str) -> tuple[Any, Any, str]:
+    global _LOADED_MODEL_NAME, _LOADED_MODEL
+    if _LOADED_MODEL_NAME == model_name and _LOADED_MODEL is not None:
+        return _LOADED_MODEL
+
+    _LOADED_MODEL_NAME = None
+    _LOADED_MODEL = None
+    import gc
+
+    gc.collect()
+
     cfg = MODEL_REGISTRY[model_name]
     if cfg["type"] == "mms":
         from transformers import AutoProcessor, Wav2Vec2ForCTC
 
         processor = AutoProcessor.from_pretrained(cfg["model_id"])
         model = Wav2Vec2ForCTC.from_pretrained(cfg["model_id"])
-        return processor, model, "mms"
+        _LOADED_MODEL = (processor, model, "mms")
+        _LOADED_MODEL_NAME = model_name
+        return _LOADED_MODEL
 
     from transformers import WhisperForConditionalGeneration, WhisperProcessor
 
     processor = WhisperProcessor.from_pretrained(cfg["model_id"])
     model = WhisperForConditionalGeneration.from_pretrained(cfg["model_id"])
-    return processor, model, "whisper"
+    _LOADED_MODEL = (processor, model, "whisper")
+    _LOADED_MODEL_NAME = model_name
+    return _LOADED_MODEL
 
 
 def prepare_audio(audio: tuple[int, np.ndarray]) -> tuple[int, np.ndarray]:
