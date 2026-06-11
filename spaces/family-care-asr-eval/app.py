@@ -15,18 +15,28 @@ MODEL_REGISTRY = {
         "model_id": "facebook/mms-1b-all",
         "type": "mms",
         "parameter_count": "1B",
+        "languages": ["aka", "eng"],
         "notes": "Native multilingual ASR with Twi target language and Fante/Akan coverage.",
+    },
+    "Ani Kese MMS Akan fine-tune": {
+        "model_id": "teckedd/mms-akan-ani-kese-v1",
+        "type": "mms",
+        "parameter_count": "1B",
+        "languages": ["aka"],
+        "notes": "Fresh MMS adapter/head fine-tune on GhanaNLP Twi speech; primary Twi WER improved from 79.27% to 78.10% in the gated run.",
     },
     "Ani Kɛse Akan Whisper fine-tune": {
         "model_id": "teckedd/whisper_small-waxal_akan-asr-v1",
         "type": "whisper",
         "parameter_count": "0.2B",
+        "languages": ["aka", "eng"],
         "notes": "Published Akan fine-tune; useful for Well-Tuned badge validation.",
     },
     "GiftMark Akan Whisper": {
         "model_id": "GiftMark/akan-whisper-model",
         "type": "whisper",
         "parameter_count": "0.2B",
+        "languages": ["aka", "eng"],
         "notes": "Community Akan fallback, Twi-oriented.",
     },
 }
@@ -76,6 +86,14 @@ def maybe_resample(waveform: np.ndarray, sample_rate: int, target_rate: int = 16
 
 
 def transcribe_one(audio: tuple[int, np.ndarray] | None, language: str, model_name: str) -> dict[str, Any]:
+    cfg = MODEL_REGISTRY[model_name]
+    if language not in cfg.get("languages", []):
+        return {
+            "model": model_name,
+            "text": "",
+            "confidence": 0.0,
+            "error": f"This model is configured for {', '.join(cfg.get('languages', []))}, not {language}.",
+        }
     if audio is None:
         return {
             "model": model_name,

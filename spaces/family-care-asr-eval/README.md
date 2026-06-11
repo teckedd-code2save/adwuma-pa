@@ -20,6 +20,7 @@ Community testers can vote for the model that best preserves the meaning of each
 ## Models
 
 - `facebook/mms-1b-all`: primary recommendation for Twi and Fante coverage.
+- `teckedd/mms-akan-ani-kese-v1`: fresh MMS Akan/Twi fine-tune from the GhanaNLP Twi speech dataset.
 - `teckedd/whisper_small-waxal_akan-asr-v1`: published Akan fine-tune for the Well-Tuned badge.
 - `GiftMark/akan-whisper-model`: community Akan fallback.
 
