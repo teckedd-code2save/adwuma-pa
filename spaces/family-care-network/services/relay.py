@@ -40,16 +40,16 @@ def with_status(member: dict) -> dict:
     amber_minutes = member.get("escalation_minutes_amber") or 14400
     red_minutes = member.get("escalation_minutes_red") or 20160
     if concern >= 7 or minutes_silent >= red_minutes:
-        status = "Red"
-        next_action = "Call this person and nudge the assigned relative"
+        status = "Urgent follow-up"
+        next_action = "Call this person or ask the assigned relative to confirm they are okay"
     elif concern >= 4 or minutes_silent >= amber_minutes:
-        status = "Amber"
-        next_action = "Ask the assigned relative to check in"
+        status = "Needs attention"
+        next_action = "Ask the assigned relative to check in and report back"
     elif minutes_silent >= reminder_minutes:
-        status = "Reminder"
-        next_action = "Send this person a check-in reminder link"
+        status = "Check soon"
+        next_action = "Send a warm check-in reminder"
     else:
-        status = "Green"
+        status = "Routine"
         next_action = "Normal schedule"
     contact = route_contact(member["id"])
     care_route = "No care contact assigned"
@@ -160,7 +160,7 @@ def simulate_nudge(elder_id: str) -> str:
     elder = db.one("SELECT * FROM members WHERE id = ?", (elder_id,))
     contact = route_contact(elder_id)
     if not elder:
-        return "No elder found."
+        return "No family member found."
     if not contact:
         return f"No care contact assigned for {elder['name']}. Add an affiliation in Members."
     role = (contact.get("care_role") or "family").replace("_", " ")
@@ -205,12 +205,12 @@ def scan_silence() -> list[str]:
             alert_id = db.create_alert(
                 member["id"],
                 "red_silence",
-                f"No check-in for {silent_text}. Red threshold is {red_text}.",
+                f"We have not heard from {member['name']} for {silent_text}. This is past their urgent follow-up window of {red_text}.",
             )
             request_id = db.create_checkup_request(
                 member["id"],
                 "red_silence",
-                f"We have not heard from {member['name']} for {silent_text}, which is beyond the red threshold of {red_text}.",
+                f"We have not heard from {member['name']} for {silent_text}, which is beyond the urgent follow-up window of {red_text}.",
                 channel="whatsapp",
                 priority="red",
                 related_alert_id=alert_id,
@@ -220,7 +220,7 @@ def scan_silence() -> list[str]:
                 db.create_checkup_request(
                     member["id"],
                     "first_party_red_silence",
-                    f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after red silence.",
+                    f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after an urgent missed check-in.",
                     request_type="field_report",
                     channel="whatsapp",
                     requester="Ani Kɛse autopilot",
@@ -229,19 +229,19 @@ def scan_silence() -> list[str]:
                     related_nudge_id=nudge_id,
                 )
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
-            actions.append(f"RED {member['name']}: alert {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
+            actions.append(f"Urgent follow-up for {member['name']}: case {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
         elif silent >= amber:
             silent_text = human_duration(silent)
             amber_text = human_duration(amber)
             alert_id = db.create_alert(
                 member["id"],
                 "amber_silence",
-                f"No check-in for {silent_text}. Amber threshold is {amber_text}.",
+                f"We have not heard from {member['name']} for {silent_text}. This is past their needs-attention window of {amber_text}.",
             )
             request_id = db.create_checkup_request(
                 member["id"],
                 "amber_silence",
-                f"We have not heard from {member['name']} for {silent_text}, which is beyond the amber threshold of {amber_text}.",
+                f"We have not heard from {member['name']} for {silent_text}, which is beyond the needs-attention window of {amber_text}.",
                 channel="whatsapp",
                 priority="amber",
                 related_alert_id=alert_id,
@@ -251,7 +251,7 @@ def scan_silence() -> list[str]:
                 db.create_checkup_request(
                     member["id"],
                     "first_party_amber_silence",
-                    f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after amber silence.",
+                    f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after a missed check-in.",
                     request_type="field_report",
                     channel="whatsapp",
                     requester="Ani Kɛse autopilot",
@@ -260,14 +260,14 @@ def scan_silence() -> list[str]:
                     related_nudge_id=nudge_id,
                 )
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
-            actions.append(f"AMBER {member['name']}: alert {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
+            actions.append(f"Needs attention for {member['name']}: case {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
         elif silent >= reminder:
             silent_text = human_duration(silent)
             reminder_text = human_duration(reminder)
             alert_id = db.create_alert(
                 member["id"],
                 "reminder_silence",
-                f"No check-in for {silent_text}. Reminder threshold is {reminder_text}.",
+                f"We have not heard from {member['name']} for {silent_text}. Their check-soon window is {reminder_text}.",
             )
             request_id = db.create_checkup_request(
                 member["id"],
@@ -277,7 +277,7 @@ def scan_silence() -> list[str]:
                 priority="routine",
                 related_alert_id=alert_id,
             )
-            actions.append(f"REMINDER {member['name']}: alert {alert_id}. Request {checkin_link_for_request(request_id)} queued.")
+            actions.append(f"Check soon for {member['name']}: case {alert_id}. Request {checkin_link_for_request(request_id)} queued.")
     if not actions:
         actions.append("No silence escalations. All active family members are inside their configured thresholds.")
     return actions

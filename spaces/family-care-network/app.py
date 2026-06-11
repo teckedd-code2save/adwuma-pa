@@ -47,7 +47,7 @@ ASR_MODEL_CHOICES = [
     ("GiftMark Akan Whisper", "fallback"),
 ]
 ROLE_CHOICES = [
-    ("Elder / care recipient", "elder"),
+    ("Care recipient", "elder"),
     ("Coordinator", "coordinator"),
     ("Relative", "relative"),
     ("Nearby contact", "nearby_contact"),
@@ -721,21 +721,230 @@ details[open] > summary {
 }
 """
 
+CUSTOM_CSS += """
+.ap-cockpit {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+  margin: 12px 0 16px;
+}
+.ap-cockpit-main,
+.ap-cockpit-side,
+.ap-composer-shell {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  padding: 14px;
+}
+.ap-cockpit-title {
+  color: #0f172a !important;
+  font-size: 18px;
+  font-weight: 900;
+  margin: 0 0 10px;
+}
+.ap-pulse-list {
+  display: grid;
+  gap: 8px;
+}
+.ap-pulse-row {
+  align-items: center;
+  background: #ffffff;
+  border: 1px solid #cbd5e1;
+  border-left: 6px solid #047857;
+  border-radius: 8px;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1.2fr .85fr 1fr 1.25fr 1fr;
+  min-height: 72px;
+  padding: 10px 12px;
+}
+.ap-person-main strong,
+.ap-timeline-person strong,
+.ap-case-card strong {
+  color: #0f172a !important;
+  display: block;
+  font-weight: 900;
+}
+.ap-person-main span,
+.ap-timeline-person span,
+.ap-case-card span {
+  color: #475569 !important;
+  display: block;
+  font-size: 12px;
+  line-height: 1.35;
+}
+.ap-person-status {
+  color: #0f172a !important;
+  font-size: 13px;
+  font-weight: 900;
+}
+.ap-person-last,
+.ap-person-action,
+.ap-person-route {
+  color: #334155 !important;
+  font-size: 13px;
+  line-height: 1.35;
+}
+.ap-urgent {
+  border-left-color: #b91c1c !important;
+}
+.ap-attention {
+  border-left-color: #d97706 !important;
+}
+.ap-check-soon {
+  border-left-color: #b45309 !important;
+}
+.ap-routine {
+  border-left-color: #047857 !important;
+}
+.ap-case-stack {
+  display: grid;
+  gap: 10px;
+}
+.ap-case-card {
+  background: #ffffff;
+  border: 1px solid #94a3b8;
+  border-left: 6px solid #b45309;
+  border-radius: 8px;
+  padding: 12px;
+}
+.ap-case-head {
+  align-items: flex-start;
+  display: flex;
+  gap: 10px;
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.ap-case-head code {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #334155;
+  font-size: 11px;
+  padding: 4px 6px;
+}
+.ap-case-next {
+  background: #f8fafc;
+  border: 1px solid #cbd5e1;
+  border-radius: 6px;
+  color: #0f172a !important;
+  font-size: 13px;
+  font-weight: 700;
+  margin-top: 10px;
+  padding: 8px;
+}
+.ap-case-empty {
+  background: #f8fafc;
+  border: 1px dashed #94a3b8;
+  border-radius: 8px;
+  display: block;
+  padding: 14px;
+}
+.ap-case-empty strong {
+  color: #0f172a !important;
+  display: block;
+  font-size: 15px;
+  margin-bottom: 4px;
+}
+.ap-case-empty span {
+  color: #475569 !important;
+  display: block;
+  font-size: 13px;
+}
+.ap-timeline {
+  background: #ffffff;
+  border: 1px solid #64748b;
+  border-radius: 8px;
+  padding: 14px;
+}
+.ap-timeline-person {
+  border-bottom: 1px solid #cbd5e1;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+}
+.ap-timeline-event {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 14px minmax(0, 1fr);
+  padding: 0 0 14px;
+  position: relative;
+}
+.ap-timeline-event::before {
+  background: #cbd5e1;
+  bottom: 0;
+  content: "";
+  left: 6px;
+  position: absolute;
+  top: 16px;
+  width: 1px;
+}
+.ap-timeline-event:last-child::before {
+  display: none;
+}
+.ap-timeline-dot {
+  background: #047857;
+  border-radius: 999px;
+  height: 13px;
+  margin-top: 3px;
+  width: 13px;
+}
+.ap-timeline-title {
+  color: #0f172a !important;
+  font-size: 14px;
+  font-weight: 900;
+}
+.ap-timeline-detail {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 6px;
+  color: #334155 !important;
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 6px;
+  max-height: 90px;
+  overflow: auto;
+  padding: 8px;
+}
+.ap-autopilot-strip {
+  align-items: end;
+  display: grid;
+  gap: 10px;
+  grid-template-columns: 1fr 150px 1fr 160px 150px;
+  margin: 10px 0 14px;
+}
+.ap-composer-shell {
+  margin-top: 12px;
+}
+.ap-composer-shell .wrap,
+.ap-composer-shell .block {
+  min-width: 0 !important;
+}
+@media (max-width: 980px) {
+  .ap-cockpit,
+  .ap-autopilot-strip {
+    grid-template-columns: 1fr;
+  }
+  .ap-pulse-row {
+    grid-template-columns: 1fr;
+  }
+}
+"""
+
 
 def refresh_dashboard():
     settings = db.autopilot_settings()
     return (
         autopilot_summary_html(),
-        gr.Checkbox(value=settings["enabled"]),
+        gr.Dropdown(value=settings["enabled"]),
         gr.Number(value=settings["scan_interval_minutes"]),
-        gr.Checkbox(value=settings["send_whatsapp"]),
+        gr.Dropdown(value=settings["send_whatsapp"]),
         operations_status_html(),
         status_cards_html(),
         active_requests_html(),
         recent_responses_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         gr.Dropdown(choices=alert_choices()),
         modal_health_markdown(),
         model_budget_markdown(),
@@ -804,6 +1013,244 @@ def operations_status_html():
 """
 
 
+def human_status_class(status):
+    return {
+        "Routine": "routine",
+        "Check soon": "check-soon",
+        "Needs attention": "attention",
+        "Urgent follow-up": "urgent",
+    }.get(status or "", "routine")
+
+
+def human_priority_label(priority):
+    return {
+        "routine": "Routine",
+        "amber": "Needs attention",
+        "red": "Urgent follow-up",
+    }.get(priority or "", (priority or "Routine").replace("_", " ").title())
+
+
+def human_alert_label(alert_type):
+    alert_type = (alert_type or "").lower()
+    if alert_type == "needs_review":
+        return "Review needed"
+    if "red" in alert_type:
+        if "silence" in alert_type:
+            return "Urgent follow-up: no recent check-in"
+        return "Urgent follow-up: concerning reply"
+    if "amber" in alert_type:
+        if "silence" in alert_type:
+            return "Needs attention: no recent check-in"
+        return "Needs attention: concerning reply"
+    if "reminder" in alert_type:
+        return "Check soon: reminder due"
+    return (alert_type or "Open case").replace("_", " ").title()
+
+
+def attention_sort_key(row):
+    alert_type = (row.get("Type") or "").lower()
+    if "red" in alert_type:
+        return 0
+    if "amber" in alert_type:
+        return 1
+    if "needs_review" in alert_type:
+        return 2
+    if "reminder" in alert_type:
+        return 3
+    return 4
+
+
+def family_pulse_html(limit=14):
+    rows = dashboard_rows()[:limit]
+    if not rows:
+        return '<div class="ap-empty">No family members yet. Add people and their care links to start the family pulse.</div>'
+    items = []
+    for row in rows:
+        status = row["Status"]
+        status_class = human_status_class(status)
+        silent = row.get("Minutes silent") or 0
+        last = "No check-in yet" if int(silent) >= 9999 else f"Last heard from about {human_duration_for_ui(silent)} ago"
+        items.append(
+            f"""
+            <article class="ap-pulse-row ap-{status_class}">
+              <div class="ap-person-main">
+                <strong>{esc(row['Name'])}</strong>
+                <span>{esc(row['City'] or row['Region'] or 'Location not set')} · {esc(row.get('Role') or 'family')}</span>
+              </div>
+              <div class="ap-person-status">{esc(status)}</div>
+              <div class="ap-person-last">{esc(last)}</div>
+              <div class="ap-person-action">{esc(row['Next action'])}</div>
+              <div class="ap-person-route">{esc(row.get('Care route') or 'No care contact assigned')}</div>
+            </article>
+            """
+        )
+    return '<section class="ap-pulse-list">' + "\n".join(items) + "</section>"
+
+
+def attention_queue_html(limit=6):
+    open_alerts = [row for row in alert_rows() if row["State"].lower() == "open"]
+    open_alerts = sorted(open_alerts, key=attention_sort_key)[:limit]
+    if not open_alerts:
+        return """
+        <section class="ap-case-empty">
+          <strong>No open family cases</strong>
+          <span>Ani Kɛse will surface missed check-ins, concerning replies, and review-needed updates here.</span>
+        </section>
+        """
+    cards = []
+    for row in open_alerts:
+        label = human_alert_label(row["Type"])
+        notes = alert_note_html(row["Notes"])
+        cards.append(
+            f"""
+            <article class="ap-case-card ap-{case_class(row['Type'])}">
+              <div class="ap-case-head">
+                <div>
+                  <strong>{esc(row['Member'])}</strong>
+                  <span>{esc(label)}</span>
+                </div>
+                <code>{esc(row['Created'])}</code>
+              </div>
+              {notes}
+              <div class="ap-case-next">{esc(alert_next_action(row['Type']))}</div>
+            </article>
+            """
+        )
+    return '<section class="ap-case-stack">' + "\n".join(cards) + "</section>"
+
+
+def case_class(alert_type):
+    alert_type = (alert_type or "").lower()
+    if "red" in alert_type:
+        return "urgent"
+    if "amber" in alert_type:
+        return "attention"
+    if "needs_review" in alert_type:
+        return "review"
+    return "check-soon"
+
+
+def person_timeline_html(member_id=None, limit=12):
+    if not member_id:
+        latest = db.one("SELECT id FROM members WHERE active = 1 ORDER BY created_at DESC LIMIT 1")
+        member_id = latest["id"] if latest else None
+    if not member_id:
+        return '<div class="ap-empty">Add a family member to see their care timeline.</div>'
+    member = db.one("SELECT * FROM members WHERE id = ?", (member_id,))
+    if not member:
+        return '<div class="ap-empty">Choose a valid family member.</div>'
+    checkins = db.rows(
+        """
+        SELECT submitted_at AS event_at, 'reply' AS kind, source, input_type, analysis_status,
+               concern_level, summary, transcript, translation, processing_error, request_id
+        FROM checkins
+        WHERE member_id = ?
+        ORDER BY submitted_at DESC
+        LIMIT ?
+        """,
+        (member_id, limit),
+    )
+    requests = db.rows(
+        """
+        SELECT created_at AS event_at, 'request' AS kind, request_type, reason_code, reason_detail,
+               status, priority, token
+        FROM checkup_requests
+        WHERE member_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+        """,
+        (member_id, limit),
+    )
+    alerts = db.rows(
+        """
+        SELECT created_at AS event_at, 'case' AS kind, alert_type, notes, resolved, resolved_at
+        FROM alerts
+        WHERE member_id = ?
+        ORDER BY created_at DESC
+        LIMIT ?
+        """,
+        (member_id, limit),
+    )
+    events = sorted([*checkins, *requests, *alerts], key=lambda row: row["event_at"] or "", reverse=True)[:limit]
+    if not events:
+        return f'<div class="ap-empty">No timeline yet for {esc(member["name"])}.</div>'
+    rendered = []
+    for event in events:
+        if event["kind"] == "reply":
+            title = "Reply received"
+            meta = f"{event['source']} · {event['analysis_status']}"
+            if event.get("concern_level") is not None:
+                meta += f" · concern {event['concern_level']}/10"
+            body = event.get("summary") or "Saved for review."
+            detail = event.get("translation") or event.get("transcript") or event.get("processing_error") or ""
+        elif event["kind"] == "request":
+            title = "Check-in requested"
+            meta = f"{friendly_reason(event['reason_code'])} · {human_priority_label(event['priority'])} · {event['status']}"
+            body = event.get("reason_detail") or "Family check-in requested."
+            detail = f"/checkin/{event['token']}"
+        else:
+            title = human_alert_label(event["alert_type"])
+            meta = "Closed" if event.get("resolved") else "Open"
+            body = first_note_line(event.get("notes") or "")
+            detail = event.get("notes") or ""
+        rendered.append(
+            f"""
+            <article class="ap-timeline-event">
+              <div class="ap-timeline-dot"></div>
+              <div>
+                <div class="ap-timeline-title">{esc(title)}</div>
+                <div class="ap-item-meta">{esc(event['event_at'])} · {esc(meta)}</div>
+                <div class="ap-item-note">{esc(body)}</div>
+                {f'<div class="ap-timeline-detail">{esc(detail)}</div>' if detail else ''}
+              </div>
+            </article>
+            """
+        )
+    return f"""
+    <section class="ap-timeline">
+      <div class="ap-timeline-person">
+        <strong>{esc(member['name'])}</strong>
+        <span>{esc(member.get('location_city') or 'Location not set')} · {esc(member.get('language') or 'language unset')}</span>
+      </div>
+      {''.join(rendered)}
+    </section>
+    """
+
+
+def first_note_line(notes):
+    lines = [line.strip() for line in (notes or "").splitlines() if line.strip()]
+    return lines[0] if lines else "Family case opened."
+
+
+def human_duration_for_ui(minutes):
+    try:
+        minutes = int(minutes)
+    except Exception:
+        minutes = 0
+    if minutes >= 9999:
+        return "a long time"
+    if minutes < 60:
+        return f"{minutes} min"
+    hours = minutes // 60
+    if hours < 24:
+        return f"{hours} hr"
+    days = hours // 24
+    return f"{days} day{'s' if days != 1 else ''}"
+
+
+def cockpit_refresh():
+    return (
+        family_pulse_html(),
+        attention_queue_html(),
+        active_requests_html(),
+        recent_responses_html(),
+        person_timeline_html(None),
+        gr.Dropdown(choices=alert_choices()),
+        gr.Dropdown(choices=pending_request_choices()),
+        operations_status_html(),
+    )
+
+
 def demo_story_html():
     return """
 <section>
@@ -815,7 +1262,7 @@ def demo_story_html():
       and keeps the loop open until someone confirms the next action.
     </p>
     <div class="ap-flow">
-      <div class="ap-flow-step"><strong>1. Watch</strong><span>Configurable silence thresholds per elder.</span></div>
+      <div class="ap-flow-step"><strong>1. Watch</strong><span>Configurable check-in windows per person.</span></div>
       <div class="ap-flow-step"><strong>2. Ask</strong><span>Tokenized web or WhatsApp check-ins.</span></div>
       <div class="ap-flow-step"><strong>3. Understand</strong><span>ASR, translation, Qwen JSON analysis.</span></div>
       <div class="ap-flow-step"><strong>4. Close</strong><span>Nudge the right relative and resolve the loop.</span></div>
@@ -852,7 +1299,7 @@ def active_requests_html(limit=8):
         detail = row["reason_detail"] or friendly_reason(row["reason_code"])
         link = f"/checkin/{row['token']}"
         is_report = row["request_type"] == "field_report"
-        label = "Relative report" if is_report else "Elder check-in"
+        label = "Relative update" if is_report else "Family check-in"
         responder = (
             f"{row['contact_name']} ({row['contact_city'] or 'location unset'})"
             if is_report and row.get("contact_name")
@@ -877,10 +1324,10 @@ def active_requests_html(limit=8):
 def family_overview_html(limit=12):
     rows = dashboard_rows()[:limit]
     if not rows:
-        return '<div class="ap-empty">No family members yet. Add the first elder or relative in Members.</div>'
+        return '<div class="ap-empty">No family members yet. Add the first person in Members.</div>'
     cards = []
     for row in rows:
-        status = row["Status"].lower()
+        status = human_status_class(row["Status"])
         cards.append(
             f"""
             <article class="ap-family-card ap-{status}">
@@ -1001,39 +1448,39 @@ def alert_note_html(notes):
 def alert_next_action(alert_type):
     alert_type = (alert_type or "").lower()
     if alert_type.startswith("red"):
-        return "Call the elder or nudge the assigned relative, then resolve when someone confirms the next action."
+        return "Call this person or ask the assigned relative to confirm they are okay, then close the case with a note."
     if alert_type.startswith("amber"):
-        return "Ask the assigned relative to check in, then resolve once the family has a confirmed update."
+        return "Ask the assigned relative to check in, then close the case once the family has a confirmed update."
     if alert_type == "needs_review":
-        return "Review the saved response and model error, then resolve or create a follow-up request."
+        return "Review the saved response, translation, and model error before deciding the next family action."
     if alert_type.startswith("reminder"):
-        return "Send or resend a check-in link, then resolve after a response arrives."
-    return "Use Resolve latest alert after the coordinator confirms the next family action."
+        return "Send or resend a check-in link, then close after a response arrives."
+    return "Close after the coordinator confirms the next family action."
 
 
 def friendly_reason(reason):
     return {
         "coordinator_request": "Coordinator requested check-in",
         "routine_check": "Routine check-in",
-        "reminder_silence": "Reminder after silence",
-        "amber_silence": "Needs relative follow-up",
-        "red_silence": "Urgent silence escalation",
+        "reminder_silence": "Time to check in",
+        "amber_silence": "Needs attention",
+        "red_silence": "Urgent follow-up",
         "first_party_amber_silence": "Relative asked to check in",
-        "first_party_red_silence": "Urgent relative report",
+        "first_party_red_silence": "Urgent relative update",
     }.get(reason or "", (reason or "Check-in").replace("_", " ").title())
 
 
 def status_cards_html():
     rows = dashboard_rows()
-    counts = {status: 0 for status in ["Green", "Reminder", "Amber", "Red"]}
+    counts = {status: 0 for status in ["Routine", "Check soon", "Needs attention", "Urgent follow-up"]}
     for row in rows:
         counts[row["Status"]] = counts.get(row["Status"], 0) + 1
     return f"""
 <div class="ap-status-grid">
-  <div class="ap-status-card ap-green"><div class="ap-status-label">Green</div><div class="ap-status-value">{counts.get("Green", 0)}</div></div>
-  <div class="ap-status-card ap-reminder"><div class="ap-status-label">Reminder</div><div class="ap-status-value">{counts.get("Reminder", 0)}</div></div>
-  <div class="ap-status-card ap-amber"><div class="ap-status-label">Amber</div><div class="ap-status-value">{counts.get("Amber", 0)}</div></div>
-  <div class="ap-status-card ap-red"><div class="ap-status-label">Red</div><div class="ap-status-value">{counts.get("Red", 0)}</div></div>
+  <div class="ap-status-card ap-routine"><div class="ap-status-label">Routine</div><div class="ap-status-value">{counts.get("Routine", 0)}</div></div>
+  <div class="ap-status-card ap-check-soon"><div class="ap-status-label">Check soon</div><div class="ap-status-value">{counts.get("Check soon", 0)}</div></div>
+  <div class="ap-status-card ap-attention"><div class="ap-status-label">Needs attention</div><div class="ap-status-value">{counts.get("Needs attention", 0)}</div></div>
+  <div class="ap-status-card ap-urgent"><div class="ap-status-label">Urgent follow-up</div><div class="ap-status-value">{counts.get("Urgent follow-up", 0)}</div></div>
 </div>
 """
 
@@ -1070,7 +1517,7 @@ def alert_choices():
         LIMIT 30
         """
     )
-    return [(f"{row['name']} - {row['alert_type']} - {row['created_at']}", row["id"]) for row in rows]
+    return [(f"{row['name']} - {human_alert_label(row['alert_type'])} - {row['created_at']}", row["id"]) for row in rows]
 
 
 def open_loop_rows():
@@ -1145,7 +1592,7 @@ def member_profile_html(member_id):
     <div class="ap-profile-row"><strong>Phone</strong><br>{esc(member.get('phone') or '')}</div>
     <div class="ap-profile-row"><strong>WhatsApp</strong><br>{esc(member.get('whatsapp') or member.get('phone') or '')}</div>
     <div class="ap-profile-row"><strong>First-party contacts</strong><br>{esc(contacts)}</div>
-    <div class="ap-profile-row"><strong>Policy</strong><br>reminder {esc(member.get('reminder_minutes'))} min, amber {esc(member.get('escalation_minutes_amber'))} min, red {esc(member.get('escalation_minutes_red'))} min</div>
+    <div class="ap-profile-row"><strong>Policy</strong><br>check soon {esc(member.get('reminder_minutes'))} min, needs attention {esc(member.get('escalation_minutes_amber'))} min, urgent follow-up {esc(member.get('escalation_minutes_red'))} min</div>
   </div>
   <div class="ap-profile-section"><strong>Affiliations</strong><ul>{affiliation_text}</ul></div>
   <div class="ap-profile-section"><strong>Open request links</strong><ul>{pending_lines}</ul></div>
@@ -1178,7 +1625,7 @@ def recent_responses_html(limit=8):
         SELECT created_at, sender, body, status
         FROM inbound_messages
         ORDER BY created_at DESC
-        LIMIT 5
+        LIMIT 20
         """
     )
     rows = db.rows(
@@ -1199,14 +1646,27 @@ def recent_responses_html(limit=8):
     if not rows and not inbound:
         return '<div class="ap-empty">No responses received yet.</div>'
     cards = []
+    grouped_inbound = []
+    seen_inbound = {}
     for row in inbound:
+        key = (row.get("sender") or "", (row.get("body") or "").strip().lower())
+        if key in seen_inbound:
+            seen_inbound[key]["count"] += 1
+            continue
+        item = dict(row)
+        item["count"] = 1
+        seen_inbound[key] = item
+        grouped_inbound.append(item)
+    for row in grouped_inbound[:4]:
+        match = "Matched to family" if row["status"] == "matched" else "Not matched to a family member"
+        count = f" · {row['count']} similar" if row.get("count", 1) > 1 else ""
         cards.append(
             f"""
             <article class="ap-item">
               <div>
-                <div class="ap-item-title">Inbound WhatsApp</div>
-                <div class="ap-item-meta">{esc(row['created_at'])} · {esc(row['status'])} · {esc(row['sender'])}</div>
-                <div class="ap-item-note"><strong>Raw message:</strong> {esc(row['body'])}</div>
+                <div class="ap-item-title">WhatsApp update</div>
+                <div class="ap-item-meta">{esc(row['created_at'])} · {esc(match)} · {esc(row['sender'])}{esc(count)}</div>
+                <div class="ap-item-note"><strong>Message:</strong> {esc(row['body'])}</div>
               </div>
             </article>
             """
@@ -1309,7 +1769,7 @@ def add_member(name, phone, whatsapp, city, region, language, family_role, is_co
         member_registry_html(),
         storage_status_html(),
         status_cards_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
         choices,
         choices,
@@ -1355,7 +1815,7 @@ def save_member_edits(member_id, name, phone, whatsapp, city, region, language, 
         storage_status_html(),
         member_profile_html(member_id),
         status_cards_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
         choices,
         choices,
@@ -1389,7 +1849,7 @@ def add_affiliation(subject_member_id, related_member_id, relationship, care_rol
         f"Saved affiliation {affiliation_id}.",
         member_affiliation_rows(subject_member_id),
         member_profile_html(subject_member_id),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
     )
 
@@ -1401,9 +1861,9 @@ def load_sample_data():
         "Sample data loaded.",
         status_cards_html(),
         active_requests_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         choices,
         choices,
         choices,
@@ -1420,9 +1880,9 @@ def clear_data():
         "All members, check-ins, alerts, nudges, and calls cleared.",
         status_cards_html(),
         active_requests_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         member_registry_html(),
         storage_status_html(),
         choices,
@@ -1464,7 +1924,7 @@ def load_request_context(token):
 
 
 def request_context_markdown(request):
-    reporter = "nearby relative" if request["request_type"] == "field_report" else "elder"
+    reporter = "nearby relative" if request["request_type"] == "field_report" else "person being checked on"
     return f"""
 ### Response for {request['member_name']}
 
@@ -1499,9 +1959,9 @@ def submit_checkin_by_token(token, language, text, audio, input_mode, source):
         json.dumps(result, indent=2),
         status_cards_html(),
         active_requests_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         recent_responses_html(),
         gr.Dropdown(choices=alert_choices()),
     )
@@ -1532,9 +1992,9 @@ def resolve_selected_alert(alert_id, resolved_by, notes):
     db.resolve_alert(alert_id, resolved_by or "Coordinator", notes or "Loop closed.")
     return (
         f"Resolved {alert_id}.",
-        alert_overview_html(),
+        attention_queue_html(),
         gr.Dropdown(choices=alert_choices(), value=None),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
         status_cards_html(),
     )
@@ -1542,7 +2002,7 @@ def resolve_selected_alert(alert_id, resolved_by, notes):
 
 def nudge(member_id):
     if not member_id:
-        raise gr.Error("Choose an elder.")
+        raise gr.Error("Choose a family member.")
     return simulate_nudge(member_id)
 
 
@@ -1564,9 +2024,9 @@ def create_manual_request(member_id, reason_code, reason_detail, request_type, p
         status_cards_html(),
         active_requests_html(),
         recent_responses_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         gr.Dropdown(choices=alert_choices()),
         gr.Dropdown(choices=pending_request_choices()),
     )
@@ -1649,9 +2109,9 @@ def send_checkin_whatsapp(request_id):
         status_cards_html(),
         active_requests_html(),
         recent_responses_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         gr.Dropdown(choices=alert_choices()),
         outbound_table_value(),
         choices,
@@ -1671,7 +2131,7 @@ def public_checkin_page(token: str, request: dict, message: str = "") -> str:
         "fat": "selected" if request.get("language") == "fat" else "",
         "eng": "selected" if request.get("language") == "eng" else "",
     }
-    expected = "relative or caregiver" if request["request_type"] == "field_report" else "elder"
+    expected = "relative or caregiver" if request["request_type"] == "field_report" else "person being checked on"
     submit_disabled = "disabled" if request["status"] == "complete" else ""
     status_note = (
         "This check-in has already been completed."
@@ -1953,9 +2413,9 @@ def run_silence_scan():
         status_cards_html(),
         active_requests_html(),
         recent_responses_html(),
-        family_overview_html(),
+        family_pulse_html(),
         care_routes_html(),
-        alert_overview_html(),
+        attention_queue_html(),
         gr.Dropdown(choices=alert_choices()),
         gr.Dropdown(choices=pending_request_choices()),
         outbound_table_value(),
@@ -1963,16 +2423,22 @@ def run_silence_scan():
 
 
 def save_autopilot_controls(enabled, scan_interval_minutes, send_whatsapp):
-    settings = db.save_autopilot_settings(enabled, scan_interval_minutes, send_whatsapp)
+    settings = db.save_autopilot_settings(as_bool(enabled), scan_interval_minutes, as_bool(send_whatsapp))
     mode = "on" if settings["enabled"] else "off"
     delivery = "auto-send WhatsApp" if settings["send_whatsapp"] else "queue links only"
     return (
         f"Autopilot {mode}. Scan interval: {settings['scan_interval_minutes']} minutes. Delivery: {delivery}.",
         autopilot_summary_html(),
-        gr.Checkbox(value=settings["enabled"]),
+        gr.Dropdown(value=settings["enabled"]),
         gr.Number(value=settings["scan_interval_minutes"]),
-        gr.Checkbox(value=settings["send_whatsapp"]),
+        gr.Dropdown(value=settings["send_whatsapp"]),
     )
+
+
+def as_bool(value):
+    if isinstance(value, bool):
+        return value
+    return str(value).strip().lower() in {"true", "1", "yes", "on"}
 
 
 def autopilot_result_text(result):
@@ -1999,12 +2465,12 @@ def update_escalation_settings(member_id, reminder_minutes, amber_minutes, red_m
     member = db.one("SELECT name, reminder_minutes, escalation_minutes_amber, escalation_minutes_red FROM members WHERE id = ?", (member_id,))
     return (
         f"Updated {member['name']}: reminder {member['reminder_minutes']} min, "
-        f"amber {member['escalation_minutes_amber']} min, red {member['escalation_minutes_red']} min.",
+        f"needs attention {member['escalation_minutes_amber']} min, urgent follow-up {member['escalation_minutes_red']} min.",
         gr.Number(value=member["reminder_minutes"]),
         gr.Number(value=member["escalation_minutes_amber"]),
         gr.Number(value=member["escalation_minutes_red"]),
         status_cards_html(),
-        family_overview_html(),
+        family_pulse_html(),
     )
 
 
@@ -2021,7 +2487,7 @@ def load_escalation_settings(member_id):
         gr.Number(value=member["reminder_minutes"]),
         gr.Number(value=member["escalation_minutes_amber"]),
         gr.Number(value=member["escalation_minutes_red"]),
-        f"Loaded {member['name']}: reminder {member['reminder_minutes']} min, amber {member['escalation_minutes_amber']} min, red {member['escalation_minutes_red']} min.",
+        f"Loaded {member['name']}: reminder {member['reminder_minutes']} min, needs attention {member['escalation_minutes_amber']} min, urgent follow-up {member['escalation_minutes_red']} min.",
     )
 
 
@@ -2047,7 +2513,7 @@ def build_notes_html():
 <section class="ap-build-grid">
   <article class="ap-build-panel">
     <h3>Submission positioning</h3>
-    <p>This is a Backyard AI project for one real family coordination problem: making sure elders are checked on, understood, routed to the right relative, and followed through.</p>
+    <p>This is a Backyard AI project for one real family coordination problem: making sure family members are checked on, understood, routed to the right relative, and followed through.</p>
     <p>The AI is load-bearing in four places: Twi/Fante speech-to-text, Twi/Fante-to-English translation, Qwen structured concern analysis, and choosing the next human action. If Modal is unavailable, the app stores the response as needs_review instead of producing a fake score.</p>
   </article>
   <article class="ap-build-panel">
@@ -2061,7 +2527,7 @@ def build_notes_html():
       <li>ASR evaluation Space with community voting.</li>
       <li>Main Gradio care dashboard with SQLite persistence.</li>
       <li>Tokenized checkup links, alerts, first-party nudge drafts, and closure flow.</li>
-      <li>Configurable reminder, amber, and red silence escalation intervals.</li>
+      <li>Configurable check-soon, needs-attention, and urgent-follow-up intervals.</li>
       <li>Modal-safe boundary for ASR, translation, Qwen analysis, and TTS.</li>
     </ul>
   </article>
@@ -2122,7 +2588,7 @@ def build_app():
               <div class="ap-title">Ani Kɛse</div>
               <div class="ap-subtitle">
                 A small AI care network for Ghanaian families: multilingual check-ins, concern scoring,
-                silence detection, nearest-relative nudges, and loop closure for elders who may not ask for help.
+                silence detection, nearest-relative nudges, and loop closure for family members who may not ask for help.
               </div>
             </div>
             """
@@ -2132,37 +2598,59 @@ def build_app():
 
         with gr.Tabs():
             with gr.Tab("Overview"):
-                autopilot_status = gr.HTML(autopilot_summary_html())
                 settings = db.autopilot_settings()
+                gr.HTML('<div class="ap-section-title">Autopilot</div>')
                 with gr.Row():
-                    autopilot_enabled = gr.Checkbox(label="Autopilot enabled", value=settings["enabled"])
+                    autopilot_enabled = gr.Dropdown(
+                        choices=[("On", True), ("Off", False)],
+                        label="Autopilot",
+                        value=settings["enabled"],
+                    )
                     autopilot_interval = gr.Number(label="Scan every minutes", value=settings["scan_interval_minutes"], precision=0)
-                    autopilot_send_whatsapp = gr.Checkbox(label="Auto-send WhatsApp links", value=settings["send_whatsapp"])
-                with gr.Row():
+                    autopilot_send_whatsapp = gr.Dropdown(
+                        choices=[("Queue links only", False), ("Auto-send WhatsApp", True)],
+                        label="WhatsApp delivery",
+                        value=settings["send_whatsapp"],
+                    )
                     save_autopilot_btn = gr.Button("Save autopilot settings")
                     scan_btn = gr.Button("Run autopilot once", variant="primary")
-                autopilot_output = gr.Textbox(label="Autopilot result", lines=7, interactive=False)
-                operations_status = gr.HTML(operations_status_html())
+                autopilot_status = gr.HTML(autopilot_summary_html())
+                autopilot_output = gr.Textbox(label="Autopilot result", lines=2, interactive=False)
                 status_cards = gr.HTML(status_cards_html())
                 with gr.Row():
-                    refresh = gr.Button("Refresh", variant="primary")
-                with gr.Accordion("Active check-ins", open=True):
-                    requests = gr.HTML(active_requests_html())
-                with gr.Accordion("Recent responses", open=True):
-                    recent_responses = gr.HTML(recent_responses_html())
-                with gr.Accordion("Alerts and reviews", open=True):
-                    alerts = gr.HTML(alert_overview_html())
-                with gr.Accordion("Family overview", open=False):
-                    family_table = gr.HTML(family_overview_html())
-                with gr.Accordion("Autopilot relative routes", open=False):
-                    care_routes = gr.HTML(care_routes_html())
-                with gr.Accordion("Resolve an alert", open=False):
-                    alert_picker = gr.Dropdown(choices=alert_choices(), label="Alert or case")
-                    with gr.Row():
+                    refresh = gr.Button("Refresh", variant="primary", scale=0)
+
+                with gr.Row(elem_classes=["ap-cockpit"]):
+                    with gr.Column(scale=3, elem_classes=["ap-cockpit-main"]):
+                        gr.HTML('<div class="ap-cockpit-title">Family Pulse</div>')
+                        family_table = gr.HTML(family_pulse_html())
+                    with gr.Column(scale=2, elem_classes=["ap-cockpit-side"]):
+                        gr.HTML('<div class="ap-cockpit-title">Attention Queue</div>')
+                        alerts = gr.HTML(attention_queue_html())
+                        alert_picker = gr.Dropdown(choices=alert_choices(), label="Case to close")
                         resolved_by = gr.Textbox(label="Confirmed by", value="")
-                        resolution_notes = gr.Textbox(label="What happened", value="")
-                        resolve_btn = gr.Button("Close most urgent alert")
-                    resolve_output = gr.Textbox(label="Closure result", interactive=False)
+                        resolution_notes = gr.Textbox(label="What happened", value="", lines=2)
+                        resolve_btn = gr.Button("Close selected case", variant="primary")
+                        resolve_output = gr.Textbox(label="Closure result", interactive=False)
+
+                with gr.Row():
+                    with gr.Column(scale=1):
+                        gr.HTML('<div class="ap-section-title">Waiting for replies</div>')
+                        requests = gr.HTML(active_requests_html())
+                    with gr.Column(scale=1):
+                        gr.HTML('<div class="ap-section-title">Recent updates</div>')
+                        recent_responses = gr.HTML(recent_responses_html())
+
+                gr.HTML('<div class="ap-section-title">Person timeline</div>')
+                timeline_member = gr.Dropdown(choices=member_choices(), label="Open a person")
+                member_timeline = gr.HTML(person_timeline_html(None))
+                operations_status = gr.HTML(operations_status_html(), visible=False)
+                care_routes = gr.HTML(care_routes_html(), visible=False)
+
+                with gr.Accordion("Care links and system status", open=False):
+                    visible_routes = gr.HTML(care_routes_html())
+                    visible_operations = gr.HTML(operations_status_html())
+                    visible_budget = gr.HTML(model_budget_markdown())
 
             with gr.Tab("Family Setup"):
                 member_storage = gr.HTML(storage_status_html())
@@ -2239,65 +2727,66 @@ def build_app():
                 source_state = gr.State("self")
                 with gr.Row():
                     with gr.Column(scale=1):
-                        gr.HTML('<div class="ap-section-title">Create and send</div>')
+                        gr.HTML('<div class="ap-section-title">Send a check-in</div>')
                         request_member_picker = gr.Dropdown(choices=member_choices(), label="Person to check on")
                         with gr.Row():
                             manual_type = gr.Dropdown(
-                                choices=[("Elder check-in", "elder_checkin"), ("Relative field report", "field_report")],
+                                choices=[("Ask this person directly", "elder_checkin"), ("Ask a relative for an update", "field_report")],
                                 value="elder_checkin",
-                                label="Request type",
+                                label="Who should answer",
                             )
                             manual_priority = gr.Dropdown(
-                                choices=[("Routine", "routine"), ("Amber", "amber"), ("Red", "red")],
+                                choices=[("Routine", "routine"), ("Needs attention", "amber"), ("Urgent follow-up", "red")],
                                 value="routine",
-                                label="Priority",
+                                label="Care level",
                             )
                         manual_reason = gr.Dropdown(
                             choices=[
                                 ("Coordinator request", "coordinator_request"),
                                 ("Routine check", "routine_check"),
-                                ("Reminder after silence", "reminder_silence"),
-                                ("Needs relative follow-up", "amber_silence"),
-                                ("Urgent silence escalation", "red_silence"),
+                                ("Time to check in", "reminder_silence"),
+                                ("Needs attention", "amber_silence"),
+                                ("Urgent follow-up", "red_silence"),
                             ],
                             value="coordinator_request",
-                            label="Why this exists",
+                            label="Reason",
                         )
-                        manual_detail = gr.Textbox(label="Message", lines=2, value="Coordinator requested a check-in.")
-                        create_request_btn = gr.Button("Create secure check-in link", variant="primary")
+                        manual_detail = gr.Textbox(label="Message", lines=3, value="Please send a short update so the family knows how you are doing.")
+                        create_request_btn = gr.Button("Create secure link", variant="primary")
                         create_request_output = gr.Markdown()
                         twilio_status = gr.Markdown(twilio_status_markdown())
                         send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending request")
                         send_whatsapp_btn = gr.Button("Send selected link by WhatsApp", variant="primary")
                         send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
                     with gr.Column(scale=1):
-                        gr.HTML('<div class="ap-section-title">Record response</div>')
+                        gr.HTML('<div class="ap-section-title">Save an update</div>')
                         with gr.Row():
                             request_token = gr.Textbox(label="Check-in link", placeholder="/checkin/...")
                             load_request = gr.Button("Find", variant="primary")
-                        request_context = gr.Markdown("Find the request before saving a response.")
+                        request_context = gr.Markdown("Find the request, then type or record the update in one place.")
                         with gr.Row():
                             request_member = gr.Textbox(label="Person checked on", interactive=False)
                             request_reason = gr.Textbox(label="Reason", interactive=False)
-                        with gr.Row():
-                            language = gr.Dropdown(
-                                choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
-                                value="twi",
-                                label="Language",
+                        with gr.Group(elem_classes=["ap-composer-shell"]):
+                            text = gr.Textbox(
+                                label="Update",
+                                lines=5,
+                                placeholder="Type the update here, or record voice below.",
                             )
-                            input_mode = gr.Radio([("Text", "text"), ("Voice", "voice")], value="text", label="Format")
-                        text = gr.Textbox(
-                            label="Received response",
-                            lines=5,
-                            placeholder="Paste the elder or relative response exactly as received.",
-                        )
-                        voice_audio = gr.Audio(
-                            sources=["microphone", "upload"],
-                            type="numpy",
-                            label="Voice audio, only when format is Voice",
-                        )
-                        submit = gr.Button("Save received response", variant="primary")
-                        receipt = gr.Textbox(label="Result", interactive=False)
+                            voice_audio = gr.Audio(
+                                sources=["microphone", "upload"],
+                                type="numpy",
+                                label="Record voice",
+                            )
+                            with gr.Row():
+                                language = gr.Dropdown(
+                                    choices=[("Twi", "twi"), ("Fante", "fat"), ("English", "eng")],
+                                    value="twi",
+                                    label="Language",
+                                )
+                                input_mode = gr.Radio([("Text", "text"), ("Voice", "voice")], value="text", label="Send as")
+                            submit = gr.Button("Send update", variant="primary")
+                        receipt = gr.Textbox(label="Result", interactive=False, lines=2)
                         ai_json = gr.Code(label="Care processing result", language="json", visible=False)
                         with gr.Accordion("Review translation", open=False):
                             translation_checkin = gr.Dropdown(choices=recent_checkin_choices(), label="Response")
@@ -2310,15 +2799,15 @@ def build_app():
 
                 with gr.Accordion("Loop tools and settings", open=False):
                     with gr.Row():
-                        relay_member = gr.Dropdown(choices=member_choices(), label="Elder needing follow-up")
+                        relay_member = gr.Dropdown(choices=member_choices(), label="Person needing follow-up")
                         nudge_btn = gr.Button("Draft relative nudge", variant="primary")
                     nudge_output = gr.Textbox(label="WhatsApp nudge draft", lines=4, interactive=False)
                     gr.HTML('<div class="ap-section-title">Escalation timing</div>')
                     policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
                     with gr.Row():
                         reminder_minutes = gr.Number(label="Reminder after minutes", value=10080, precision=0)
-                        amber_minutes = gr.Number(label="Amber after minutes", value=14400, precision=0)
-                        red_minutes = gr.Number(label="Red after minutes", value=20160, precision=0)
+                        amber_minutes = gr.Number(label="Needs attention after minutes", value=14400, precision=0)
+                        red_minutes = gr.Number(label="Urgent follow-up after minutes", value=20160, precision=0)
                     policy_btn = gr.Button("Save escalation policy", variant="primary")
                     policy_output = gr.Textbox(label="Policy update", interactive=False)
                     gr.HTML('<div class="ap-section-title">TTS prompt check</div>')
@@ -2370,6 +2859,7 @@ def build_app():
             inputs=[autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
             outputs=[autopilot_output, autopilot_status, autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
         )
+        timeline_member.change(person_timeline_html, inputs=[timeline_member], outputs=[member_timeline])
         scan_btn.click(
             run_silence_scan,
             outputs=[

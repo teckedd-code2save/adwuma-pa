@@ -92,10 +92,10 @@ def summarize(text: str, score: int, flags: list[str]) -> str:
 
 def next_action_for_score(score: int) -> str:
     if score >= 7:
-        return "Red: alert coordinator, nudge first-party contact, prepare call."
+        return "Urgent follow-up: alert the coordinator, nudge the assigned contact, and prepare a call."
     if score >= 4:
-        return "Amber: notify coordinator and ask a nearby relative to check in."
-    return "Green: log the check-in and keep the normal schedule."
+        return "Needs attention: notify the coordinator and ask a nearby relative to check in."
+    return "Routine: log the check-in and keep the normal schedule."
 
 
 def as_json(result: ConcernResult) -> str:
