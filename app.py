@@ -1179,6 +1179,12 @@ def humanize_legacy_text(value, member_name=None):
     text = re.sub(r"No check-in for ([^;.]+)[.;]\s*amber threshold is [^.]+\.?", missed_attention, text, flags=re.I)
     text = re.sub(r"No check-in for ([^;.]+)[.;]\s*reminder threshold is [^.]+\.?", missed_reminder, text, flags=re.I)
     text = re.sub(
+        r"We have not heard from (.+?) for ([^.]+)\.\s*This is past their urgent follow-up window of [^.]+\.?",
+        lambda m: f"We have not heard from {m.group(1).strip()} for {m.group(2).strip()}. This needs urgent follow-up.",
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
         r"Ask ([^(]+)\(([^)]+)\) to check on (.+?) after red silence\.?",
         lambda m: f"Ask {m.group(1).strip()} to check on {m.group(3).strip()} and send a short update.",
         text,
@@ -1282,7 +1288,8 @@ def family_pulse_html(limit=10):
         item = ensure(row)
         label = human_alert_label(row["alert_type"])
         note = first_note_line(humanize_legacy_text(row["notes"], row["name"]))
-        item["alerts"].append({"label": label, "note": note, "type": row["alert_type"]})
+        if not item["alerts"]:
+            item["alerts"].append({"label": label, "note": note, "type": row["alert_type"]})
         severity[row["member_id"]] = min(severity[row["member_id"]], attention_sort_key({"Type": row["alert_type"]}))
 
     for row in requests:
@@ -1294,17 +1301,18 @@ def family_pulse_html(limit=10):
             else row["name"]
         )
         detail = humanize_legacy_text(row["reason_detail"], row["name"]) or friendly_reason(row["reason_code"])
-        item["requests"].append(
-            {
-                "label": "Relative update" if is_report else "Family check-in",
-                "reason": friendly_reason(row["reason_code"]),
-                "status": row["status"],
-                "responder": responder,
-                "detail": detail,
-                "token": row["token"],
-                "priority": row["priority"] or "routine",
-            }
-        )
+        if not item["requests"]:
+            item["requests"].append(
+                {
+                    "label": "Relative update" if is_report else "Family check-in",
+                    "reason": friendly_reason(row["reason_code"]),
+                    "status": row["status"],
+                    "responder": responder,
+                    "detail": detail,
+                    "token": row["token"],
+                    "priority": row["priority"] or "routine",
+                }
+            )
         request_rank = {"red": 0, "amber": 1, "routine": 3}.get(row["priority"] or "routine", 3)
         severity[row["member_id"]] = min(severity[row["member_id"]], request_rank)
 
@@ -1340,9 +1348,9 @@ def family_pulse_html(limit=10):
         card_class = case_class(primary_type)
         status_label = item["alerts"][0]["label"] if item["alerts"] else "Waiting for reply"
         lines = []
-        for alert in item["alerts"][:2]:
+        for alert in item["alerts"][:1]:
             lines.append(f"<div class=\"ap-care-line\"><strong>Case:</strong> {esc(alert['label'])}. {esc(alert['note'])}</div>")
-        for request in item["requests"][:2]:
+        for request in item["requests"][:1]:
             lines.append(
                 f"""
                 <div class="ap-care-line"><strong>Waiting:</strong> {esc(request['label'])} · {esc(request['reason'])} · {esc(request['status'])}</div>
@@ -2935,8 +2943,7 @@ def build_app():
                         resolution_notes = gr.Textbox(label="What happened", value="", lines=2)
                         resolve_btn = gr.Button("Close selected case", variant="primary")
                         resolve_output = gr.Textbox(label="Closure result", interactive=False)
-                        gr.HTML('<div class="ap-section-title">Latest evidence</div>')
-                        recent_responses = gr.HTML(recent_responses_html())
+                        recent_responses = gr.HTML(recent_responses_html(), visible=False)
                     with gr.Column(scale=1):
                         gr.HTML('<div class="ap-cockpit-title">Care actions</div>')
                         with gr.Group(elem_classes=["ap-action-panel"]):
