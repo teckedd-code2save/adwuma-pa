@@ -129,6 +129,7 @@ CUSTOM_CSS = """
   --ap-muted: #64748b;
   --ap-line: #e5e7eb;
   --ap-line-strong: #d4d9e0;
+  --ap-input-line: #c3ccd9;
   --ap-accent: #059669;
   --ap-accent-dark: #047857;
   --ap-accent-soft: #ecfdf5;
@@ -302,10 +303,26 @@ button[role="tab"][aria-selected="true"] {
 }
 input, textarea, select {
   background: var(--ap-surface) !important;
-  border-color: var(--ap-line-strong) !important;
   color: var(--ap-ink) !important;
 }
-input:focus, textarea:focus, select:focus { border-color: var(--ap-accent) !important; }
+/* Gradio paints the field border on the .form wrapper (inputs only, never HTML/markdown).
+   Make it legible + rounder, with a soft focus ring. */
+.gradio-container .form {
+  border: 1.5px solid var(--ap-input-line) !important;
+  border-radius: 12px !important;
+  background: var(--ap-surface) !important;
+  overflow: hidden;
+}
+.gradio-container .form:focus-within {
+  border-color: var(--ap-accent) !important;
+  box-shadow: 0 0 0 3px rgba(5, 150, 105, .13) !important;
+}
+.gradio-container .block,
+.gradio-container .container.show_textbox_border,
+.gradio-container .input-container,
+.gradio-container .wrap-inner,
+.gradio-container .secondary-wrap { border-radius: 11px !important; }
+input:focus, textarea:focus, select:focus { outline: none !important; }
 /* Gradio dropdown internals — force light so they never render dark */
 .gradio-container [data-testid="dropdown"],
 .gradio-container [data-testid="dropdown"] .wrap-inner,
@@ -475,7 +492,9 @@ label:has(input[type="radio"]:checked) {
 .ap-action-row { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 0 16px; }
 .ap-action-panel { min-width: 0; }
 .ap-action-panel + .ap-action-panel { margin-top: 16px; }
-.ap-panel-title { color: var(--ap-ink); font-size: 15px; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--ap-line); }
+.ap-panel-title { color: var(--ap-ink); font-size: 15px; font-weight: 700; margin-bottom: 12px; }
+.ap-panel-help { color: var(--ap-muted); font-size: 12.5px; line-height: 1.5; margin: -6px 0 14px; padding-bottom: 14px; border-bottom: 1px solid var(--ap-line); }
+.ap-subhead { color: var(--ap-ink-soft); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; margin: 18px 0 4px; padding-top: 14px; border-top: 1px solid var(--ap-line); }
 .ap-cockpit-title { color: var(--ap-ink); font-size: 18px; font-weight: 800; margin: 0 0 12px; }
 
 /* ------------------------------ Care board cards ------------------------------ */
@@ -2772,18 +2791,23 @@ def build_app():
                                 label="Reason",
                             )
                             manual_detail = gr.Textbox(label="Message", lines=3, value="Please send a short update so the family knows how you are doing.")
-                            with gr.Row():
-                                create_request_btn = gr.Button("Create link", variant="primary")
-                                send_whatsapp_btn = gr.Button("Send by WhatsApp", variant="primary")
+                            create_request_btn = gr.Button("Create check-in link", variant="primary")
                             create_request_output = gr.Markdown()
+                            gr.HTML('<div class="ap-subhead">Deliver a pending link by WhatsApp</div>')
                             send_request_picker = gr.Dropdown(choices=pending_request_choices(), label="Pending request")
+                            send_whatsapp_btn = gr.Button("Send by WhatsApp", variant="secondary")
                             send_whatsapp_output = gr.Textbox(label="Send result", interactive=False)
                         with gr.Group(elem_classes=["ap-action-panel"]):
-                            gr.HTML('<div class="ap-panel-title">Save a reply</div>')
+                            gr.HTML(
+                                '<div class="ap-panel-title">Log a reply</div>'
+                                '<div class="ap-panel-help">Someone answered by phone, voice note, or in person? '
+                                'Paste their check-in link, then type or record what they said. Ani Kɛse scores the '
+                                'concern and updates the care board.</div>'
+                            )
                             with gr.Row():
                                 request_token = gr.Textbox(label="Check-in link", placeholder="/checkin/...")
-                                load_request = gr.Button("Find", variant="primary")
-                            request_context = gr.Markdown("Find the request, then type or record the update in one place.")
+                                load_request = gr.Button("Open link", variant="primary")
+                            request_context = gr.Markdown("Open the link above, then type or record the update in one place.")
                             with gr.Row():
                                 request_member = gr.Textbox(label="Person checked on", interactive=False)
                                 request_reason = gr.Textbox(label="Reason", interactive=False)
