@@ -647,6 +647,41 @@ def refresh_dashboard():
     )
 
 
+def page_load_state():
+    settings = db.autopilot_settings()
+    choices = member_dropdown()
+    return (
+        autopilot_summary_html(),
+        gr.Dropdown(value=settings["enabled"]),
+        gr.Number(value=settings["scan_interval_minutes"]),
+        gr.Dropdown(value=settings["send_whatsapp"]),
+        operations_status_html(),
+        status_cards_html(),
+        active_requests_html(),
+        recent_responses_html(),
+        family_pulse_html(),
+        care_routes_html(),
+        attention_queue_html(),
+        gr.Dropdown(choices=alert_choices()),
+        modal_health_markdown(),
+        model_budget_markdown(),
+        member_registry_html(),
+        storage_status_html(),
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        choices,
+        gr.Dropdown(choices=pending_request_choices()),
+        gr.Dropdown(choices=recent_checkin_choices()),
+        person_timeline_html(None),
+    )
+
+
 def table_value(rows, headers):
     return [[row.get(header, "") for header in headers] for row in rows]
 
@@ -2924,7 +2959,7 @@ def build_app():
                     admin_output = gr.Textbox(label="Admin action", interactive=False)
 
         refresh.click(
-            refresh_dashboard,
+            page_load_state,
             outputs=[
                 autopilot_status,
                 autopilot_enabled,
@@ -2940,6 +2975,53 @@ def build_app():
                 alert_picker,
                 modal_status,
                 budget,
+                member_registry,
+                member_storage,
+                request_member_picker,
+                relay_member,
+                tts_member,
+                detail_member,
+                policy_member,
+                affiliation_subject,
+                affiliation_related,
+                edit_member,
+                timeline_member,
+                send_request_picker,
+                translation_checkin,
+                member_timeline,
+            ],
+        )
+        demo.load(
+            page_load_state,
+            outputs=[
+                autopilot_status,
+                autopilot_enabled,
+                autopilot_interval,
+                autopilot_send_whatsapp,
+                operations_status,
+                status_cards,
+                requests,
+                recent_responses,
+                family_table,
+                care_routes,
+                alerts,
+                alert_picker,
+                modal_status,
+                budget,
+                member_registry,
+                member_storage,
+                request_member_picker,
+                relay_member,
+                tts_member,
+                detail_member,
+                policy_member,
+                affiliation_subject,
+                affiliation_related,
+                edit_member,
+                timeline_member,
+                send_request_picker,
+                translation_checkin,
+                member_timeline,
             ],
         )
         save_autopilot_btn.click(
