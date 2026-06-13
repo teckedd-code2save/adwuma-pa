@@ -115,25 +115,77 @@ APP_THEME = gr.themes.Base(
 )
 
 CUSTOM_CSS = """
+/* ============================================================
+   Ani Kɛse — clean clinical light theme
+   Token-driven. Drives Gradio's own theme vars so dark-mode
+   bleed (dark inputs / dark page void) is eliminated at source.
+   ============================================================ */
 :root {
-  --ap-bg: #0f172a;
+  --ap-bg: #f4f6f8;
   --ap-surface: #ffffff;
-  --ap-panel: #ffffff;
-  --ap-panel-soft: #f8fafc;
+  --ap-surface-soft: #f8fafc;
   --ap-ink: #0f172a;
-  --ap-muted: #334155;
-  --ap-border: #94a3b8;
-  --ap-palm: #047857;
-  --ap-palm-dark: #064e3b;
+  --ap-ink-soft: #334155;
+  --ap-muted: #64748b;
+  --ap-line: #e5e7eb;
+  --ap-line-strong: #d4d9e0;
+  --ap-accent: #059669;
+  --ap-accent-dark: #047857;
+  --ap-accent-soft: #ecfdf5;
+  --ap-green: #059669;
+  --ap-amber: #d97706;
   --ap-gold: #b45309;
-  --ap-clay: #b91c1c;
+  --ap-red: #dc2626;
+  --ap-radius: 12px;
+  --ap-radius-sm: 8px;
+  --ap-shadow: 0 1px 2px rgba(15, 23, 42, .04), 0 1px 3px rgba(15, 23, 42, .06);
+  --ap-shadow-soft: 0 1px 2px rgba(15, 23, 42, .04);
 }
+
+/* --- Force Gradio to a single light theme (kills dark-mode bleed) --- */
+.gradio-container,
+.gradio-container.dark,
+.dark {
+  --body-background-fill: var(--ap-bg);
+  --background-fill-primary: var(--ap-surface);
+  --background-fill-secondary: var(--ap-surface-soft);
+  --block-background-fill: var(--ap-surface);
+  --block-border-color: var(--ap-line);
+  --block-label-background-fill: var(--ap-surface-soft);
+  --block-label-border-color: var(--ap-line);
+  --block-label-text-color: var(--ap-ink-soft);
+  --block-title-background-fill: var(--ap-surface-soft);
+  --block-title-text-color: var(--ap-ink);
+  --border-color-primary: var(--ap-line);
+  --border-color-accent: var(--ap-accent);
+  --input-background-fill: var(--ap-surface);
+  --input-background-fill-focus: var(--ap-surface);
+  --input-border-color: var(--ap-line-strong);
+  --input-border-color-focus: var(--ap-accent);
+  --input-placeholder-color: #94a3b8;
+  --body-text-color: var(--ap-ink);
+  --body-text-color-subdued: var(--ap-muted);
+  --neutral-950: var(--ap-ink);
+  --color-accent: var(--ap-accent);
+  --color-accent-soft: var(--ap-accent-soft);
+  --link-text-color: var(--ap-accent-dark);
+  --panel-background-fill: var(--ap-surface);
+}
+
 .gradio-container {
-  background: #e2e8f0;
+  background: var(--ap-bg);
   color: var(--ap-ink);
   font-family: "IBM Plex Sans", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  max-width: 1240px !important;
+  max-width: 1180px !important;
+  margin-left: auto !important;
+  margin-right: auto !important;
+  padding: 20px 20px 40px !important;
 }
+/* Paint the whole iframe body so there is no dark void below the app */
+html, body, gradio-app {
+  background: var(--ap-bg) !important;
+}
+
 .gradio-container label,
 .gradio-container .label-wrap,
 .gradio-container .prose,
@@ -143,903 +195,434 @@ CUSTOM_CSS = """
 .gradio-container select,
 .gradio-container span,
 .gradio-container p {
-  color: var(--ap-ink) !important;
+  color: var(--ap-ink);
 }
-.ap-header {
-  background: #0f172a;
-  border-radius: 8px;
-  border: 1px solid #1e293b;
-  color: #f8fafc;
-  margin: 0 0 12px;
-  padding: 22px 24px;
-}
-.ap-title {
-  color: #ffffff;
-  font-size: 34px;
-  line-height: 1.05;
-  font-weight: 800;
-}
-.ap-subtitle {
-  color: #cbd5e1;
-  font-size: 15px;
-  max-width: 760px;
-  margin-top: 8px;
-}
-.ap-pill {
-  display: inline-block;
-  border: 1px solid #047857;
-  background: #ecfdf5;
-  border-radius: 6px;
-  padding: 6px 10px;
-  margin: 4px 6px 12px 0;
-  color: #064e3b !important;
-  font-size: 13px;
-  font-weight: 800;
-}
-button.primary {
-  background: var(--ap-palm-dark) !important;
-  border-color: var(--ap-palm-dark) !important;
-  color: #ffffff !important;
-}
-button {
-  font-weight: 700 !important;
-}
-button:not([role="tab"]):not(.primary) {
-  background: #ffffff !important;
-  border: 1px solid #64748b !important;
-  color: #0f172a !important;
-}
-.ap-note {
-  color: var(--ap-muted);
-  font-size: 13px;
-}
-.block,
-.form,
-.panel {
-  background: var(--ap-surface) !important;
-  border-color: var(--ap-border) !important;
-}
-.tabitem,
-.block,
-.form {
-  border-radius: 8px !important;
-}
-button[role="tab"] {
-  color: #0f172a !important;
-  background: #cbd5e1 !important;
-  border: 1px solid #94a3b8 !important;
-  border-radius: 6px !important;
-  font-weight: 800 !important;
-}
-button[role="tab"][aria-selected="true"] {
-  color: #ffffff !important;
-  background: #0f172a !important;
-  border-color: #0f172a !important;
-}
-.wrap label,
-.wrap .label-wrap,
-.form label,
-.block label {
-  color: #0f172a !important;
-  font-weight: 800 !important;
-  opacity: 1 !important;
-}
-input,
-textarea,
-select {
-  background: #ffffff !important;
-  border-color: #64748b !important;
-  color: #0f172a !important;
-}
-.table-container,
-.table-wrap,
-.virtual-table-viewport {
-  background: #ffffff !important;
-  border: 1px solid #64748b !important;
-  border-radius: 6px !important;
-}
-.header-table,
-.dataframe table {
-  font-size: 13px;
-  color: var(--ap-ink) !important;
-  background: #ffffff !important;
-  border-collapse: collapse !important;
-}
-.header-cell,
-.cell-wrap,
-.header-table .header-cell,
-.header-table th,
-.header-table td,
-.dataframe th {
-  background: #1e293b !important;
-  color: #ffffff !important;
-  font-weight: 800 !important;
-  border-color: #334155 !important;
-}
-.header-cell *,
-.cell-wrap *,
-.header-table th *,
-.header-table td *,
-.header-content,
-.header-content *,
-.header-menu,
-.header-menu *,
-.dataframe th span {
-  color: #ffffff !important;
-  background: #1e293b !important;
-}
-.table-container tbody tr,
-.table-container tbody td,
-.table-container td,
-.table-container td *,
-.cell,
-.cell *,
-.dataframe td,
-.dataframe td span {
-  color: var(--ap-ink) !important;
-  background: #ffffff !important;
-  border-color: #cbd5e1 !important;
-}
-.table-container tbody tr:nth-child(even) td,
-.table-container tbody tr:nth-child(even) td * {
-  background: #f8fafc !important;
-}
-.table-container .wrap,
-.table-container .text,
-.table-container span {
-  opacity: 1 !important;
-}
-.ap-status-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  margin: 10px 0 14px;
-}
-.ap-status-card {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  padding: 12px;
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .08);
-}
-.ap-status-label {
-  color: #1e293b !important;
-  font-size: 12px;
-  font-weight: 700;
-  text-transform: uppercase;
-}
-.ap-status-value {
-  color: #0f172a !important;
-  font-size: 28px;
-  font-weight: 800;
-  line-height: 1;
-  margin-top: 6px;
-}
-.ap-green { border-left: 6px solid #047857; }
-.ap-reminder { border-left: 6px solid #b45309; }
-.ap-amber { border-left: 6px solid #d97706; }
-.ap-red { border-left: 6px solid #b91c1c; }
-.ap-build-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  margin-top: 12px;
-}
-.ap-build-panel {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  color: #0f172a;
-  padding: 16px;
-}
-.ap-build-panel h3 {
-  color: #0f172a !important;
-  font-size: 18px;
-  margin: 0 0 8px;
-}
-.ap-build-panel p,
-.ap-build-panel li {
-  color: #1e293b !important;
-  font-size: 14px;
-  line-height: 1.5;
-}
-.ap-build-panel ul {
-  margin: 8px 0 0;
-  padding-left: 18px;
-}
-.ap-autopilot {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  color: #0f172a;
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  margin: 10px 0 14px;
-  padding: 12px;
-}
-.ap-autopilot,
-.ap-autopilot * {
-  color: #0f172a !important;
-}
-input[type="checkbox"] {
-  accent-color: #047857 !important;
-  min-height: 18px !important;
-  min-width: 18px !important;
-}
-label:has(input[type="checkbox"]) {
-  border: 1px solid #64748b !important;
-  border-radius: 6px !important;
-  color: #0f172a !important;
-  padding: 8px 10px !important;
-}
-label:has(input[type="checkbox"]:checked) {
-  background: #dcfce7 !important;
-  border-color: #047857 !important;
-}
-.ap-section-title {
-  color: #0f172a !important;
-  font-size: 18px;
-  font-weight: 900;
-  margin: 18px 0 8px;
-}
-.ap-list {
-  display: grid;
-  gap: 10px;
-  margin-bottom: 12px;
-}
-.ap-item {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #94a3b8;
-  border-left: 6px solid #047857;
-  border-radius: 8px;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
-  padding: 12px 14px;
-}
-.ap-item code {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  color: #0f172a;
-  font-size: 12px;
-  padding: 7px 8px;
-  white-space: nowrap;
-}
-.ap-item-title {
-  color: #0f172a !important;
-  font-size: 15px;
-  font-weight: 900;
-}
-.ap-item-meta,
-.ap-item-note,
-.ap-family-foot {
-  color: #334155 !important;
-  font-size: 13px;
-}
-.ap-item-note {
-  margin-top: 3px;
-}
-.ap-red,
-.ap-item.ap-red {
-  border-left-color: #b91c1c;
-}
-.ap-amber,
-.ap-item.ap-amber {
-  border-left-color: #d97706;
-}
-.ap-routine,
-.ap-item.ap-routine {
-  border-left-color: #047857;
-}
-.ap-alert {
-  border-left-color: #b45309;
-}
-.ap-state {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #0f172a !important;
-  font-size: 12px;
-  font-weight: 800;
-  padding: 5px 9px;
-  text-transform: uppercase;
-}
-.ap-family-grid {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
-  margin-bottom: 12px;
-}
-.ap-family-card {
-  background: #ffffff;
-  border: 1px solid #94a3b8;
-  border-left: 6px solid #047857;
-  border-radius: 8px;
-  padding: 12px;
-}
-.ap-family-top {
-  align-items: center;
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-}
-.ap-family-top strong {
-  color: #0f172a !important;
-  font-size: 15px;
-}
-.ap-family-top span {
-  color: #0f172a !important;
-  font-size: 12px;
-  font-weight: 900;
-  text-transform: uppercase;
-}
-.ap-empty {
-  background: #ffffff;
-  border: 1px dashed #94a3b8;
-  border-radius: 8px;
-  color: #334155 !important;
-  padding: 16px;
-}
-.ap-profile {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-left: 6px solid #047857;
-  border-radius: 8px;
-  color: #0f172a !important;
-  padding: 16px;
-}
-.ap-profile h3 {
-  color: #0f172a !important;
-  font-size: 22px;
-  font-weight: 900;
-  margin: 0 0 12px;
-}
-.ap-profile-grid {
-  display: grid;
-  gap: 8px 14px;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-}
-.ap-profile-row {
-  color: #0f172a !important;
-  font-size: 14px;
-}
-.ap-profile-row strong,
-.ap-profile-section strong {
-  color: #0f172a !important;
-  font-weight: 900;
-}
-.ap-profile-section {
-  border-top: 1px solid #cbd5e1;
-  color: #0f172a !important;
-  margin-top: 14px;
-  padding-top: 12px;
-}
-.ap-profile-section ul {
-  margin: 8px 0 0 18px;
-}
-.ap-storage {
-  background: #f8fafc;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  color: #0f172a !important;
-  padding: 12px;
-}
-.ap-storage strong {
-  color: #0f172a !important;
-}
-.gradio-container {
-  max-width: 1160px !important;
-  margin-left: auto !important;
-  margin-right: auto !important;
-  padding: 18px 18px 32px !important;
-}
-.tabs {
-  gap: 14px !important;
-}
-.tabitem {
-  background: transparent !important;
-  border: 0 !important;
-  padding: 0 !important;
-}
-.block,
-.form {
-  box-shadow: none !important;
-}
+
+/* ------------------------------ Header ------------------------------ */
 .ap-header {
   align-items: flex-start;
+  background: var(--ap-surface);
+  border: 1px solid var(--ap-line);
+  border-top: 3px solid var(--ap-accent);
+  border-radius: var(--ap-radius);
+  box-shadow: var(--ap-shadow);
   display: flex;
   justify-content: space-between;
-  gap: 18px;
+  gap: 20px;
+  margin: 0 0 18px;
+  padding: 22px 26px;
 }
 .ap-title {
-  letter-spacing: 0;
+  color: var(--ap-ink);
+  font-size: 30px;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+  white-space: nowrap;
 }
 .ap-subtitle {
-  font-size: 16px;
-  line-height: 1.5;
+  color: var(--ap-ink-soft);
+  font-size: 15px;
+  line-height: 1.55;
+  max-width: 720px;
+  margin-top: 8px;
 }
 .ap-header-side {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  color: #0f172a !important;
-  min-width: 260px;
+  background: var(--ap-surface-soft);
+  border: 1px solid var(--ap-line);
+  border-radius: var(--ap-radius-sm);
+  color: var(--ap-ink);
+  min-width: 240px;
   padding: 12px 14px;
 }
-.ap-header-side strong,
-.ap-header-side span {
-  color: #0f172a !important;
-}
-.ap-header-side strong {
-  display: block;
-  font-size: 12px;
-  letter-spacing: .04em;
-  margin-bottom: 4px;
-  text-transform: uppercase;
-}
-.ap-hero-grid {
-  display: grid;
-  gap: 12px;
-  grid-template-columns: 1.25fr .75fr;
-  margin: 8px 0 14px;
-}
-.ap-story {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  padding: 16px;
-}
-.ap-story h2 {
-  color: #0f172a !important;
-  font-size: 22px;
-  line-height: 1.2;
-  margin: 0 0 10px;
-}
-.ap-story p {
-  color: #334155 !important;
-  font-size: 14px;
-  line-height: 1.5;
-  margin: 0;
-}
-.ap-flow {
-  display: grid;
-  gap: 8px;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  margin-top: 14px;
-}
-.ap-flow-step {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
-  padding: 10px;
-}
-.ap-flow-step strong {
-  color: #0f172a !important;
-  display: block;
-  font-size: 13px;
-  margin-bottom: 3px;
-}
-.ap-flow-step span {
-  color: #475569 !important;
-  display: block;
-  font-size: 12px;
-  line-height: 1.35;
-}
-.ap-recorder {
-  background: #0f172a;
-  border: 1px solid #1e293b;
-  border-radius: 8px;
-  color: #f8fafc !important;
-  padding: 16px;
-}
-.ap-recorder strong,
-.ap-recorder li,
-.ap-recorder p {
-  color: #f8fafc !important;
-}
-.ap-recorder ul {
-  margin: 10px 0 0 18px;
-  padding: 0;
-}
-.ap-recorder li {
-  font-size: 13px;
-  line-height: 1.5;
-}
-.ap-status-card,
-.ap-family-card,
-.ap-item,
-.ap-profile,
-.ap-story,
-.ap-storage {
-  box-shadow: 0 1px 2px rgba(15, 23, 42, .06);
-}
-.ap-status-grid {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-.ap-section-title {
-  align-items: center;
-  display: flex;
-  gap: 8px;
-  letter-spacing: 0;
-}
-.ap-section-title::before {
-  background: #047857;
-  border-radius: 999px;
-  content: "";
-  display: inline-block;
-  height: 9px;
-  width: 9px;
-}
-.ap-family-grid {
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-}
-.ap-family-card,
-.ap-item {
-  min-height: 96px;
-}
-.ap-family-foot,
-.ap-item-note,
-.ap-item-meta {
-  line-height: 1.4;
-}
-details,
-.accordion {
-  border-color: #94a3b8 !important;
-}
-details > summary {
-  background: #ffffff !important;
-  border: 1px solid #64748b !important;
-  border-radius: 6px !important;
-  color: #0f172a !important;
-  font-weight: 800 !important;
-  padding: 10px 12px !important;
-}
-details[open] > summary {
-  background: #f8fafc !important;
-  border-bottom-left-radius: 0 !important;
-  border-bottom-right-radius: 0 !important;
-}
-.prose h3,
-.markdown h3 {
-  color: #0f172a !important;
-}
-@media (max-width: 820px) {
-  .ap-header,
-  .ap-hero-grid {
-    display: block;
-  }
-  .ap-header-side,
-  .ap-recorder {
-    margin-top: 12px;
-  }
-  .ap-flow,
-  .ap-status-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-}
-"""
+.ap-header-side strong { display: block; font-size: 12px; letter-spacing: .04em; margin-bottom: 4px; text-transform: uppercase; color: var(--ap-muted); }
+.ap-header-side span { color: var(--ap-ink); }
 
-CUSTOM_CSS += """
-.ap-cockpit,
-.ap-overview-workspace {
-  display: grid;
-  gap: 14px;
+.ap-pill {
+  display: inline-block;
+  border: 1px solid var(--ap-line-strong);
+  background: var(--ap-surface);
+  border-radius: 999px;
+  padding: 5px 11px;
+  margin: 4px 6px 8px 0;
+  color: var(--ap-ink-soft);
+  font-size: 12px;
+  font-weight: 600;
+}
+.ap-note { color: var(--ap-muted); font-size: 13px; }
+
+/* ------------------------------ Buttons ------------------------------ */
+button { font-weight: 600 !important; border-radius: var(--ap-radius-sm) !important; }
+button.primary,
+button[variant="primary"],
+.gradio-container button.primary {
+  background: var(--ap-accent) !important;
+  border: 1px solid var(--ap-accent) !important;
+  color: #ffffff !important;
+  box-shadow: var(--ap-shadow-soft) !important;
+}
+button.primary:hover { background: var(--ap-accent-dark) !important; border-color: var(--ap-accent-dark) !important; }
+button:not([role="tab"]):not(.primary) {
+  background: var(--ap-surface) !important;
+  border: 1px solid var(--ap-line-strong) !important;
+  color: var(--ap-ink) !important;
+}
+button:not([role="tab"]):not(.primary):hover { background: var(--ap-surface-soft) !important; border-color: var(--ap-muted) !important; }
+
+/* ------------------------------ Tabs ------------------------------ */
+.tabs { gap: 6px !important; }
+button[role="tab"] {
+  color: var(--ap-muted) !important;
+  background: transparent !important;
+  border: 0 !important;
+  border-bottom: 2px solid transparent !important;
+  border-radius: 0 !important;
+  font-weight: 600 !important;
+  padding: 10px 14px !important;
+}
+button[role="tab"][aria-selected="true"] {
+  color: var(--ap-accent-dark) !important;
+  background: transparent !important;
+  border-bottom: 2px solid var(--ap-accent) !important;
+}
+.tabitem { background: transparent !important; border: 0 !important; padding: 0 !important; }
+
+/* ------------------------------ Blocks / forms / inputs ------------------------------ */
+.block, .form, .panel {
+  background: var(--ap-surface) !important;
+  border-color: var(--ap-line) !important;
+}
+.block, .form { box-shadow: none !important; }
+.tabitem, .block, .form { border-radius: var(--ap-radius-sm) !important; }
+
+.wrap label, .wrap .label-wrap, .form label, .block label {
+  color: var(--ap-ink-soft) !important;
+  font-weight: 600 !important;
+  opacity: 1 !important;
+}
+input, textarea, select {
+  background: var(--ap-surface) !important;
+  border-color: var(--ap-line-strong) !important;
+  color: var(--ap-ink) !important;
+}
+input:focus, textarea:focus, select:focus { border-color: var(--ap-accent) !important; }
+/* Gradio dropdown internals — force light so they never render dark */
+.gradio-container [data-testid="dropdown"],
+.gradio-container [data-testid="dropdown"] .wrap-inner,
+.gradio-container .secondary-wrap,
+.gradio-container ul.options,
+.gradio-container ul.options li {
+  background: var(--ap-surface) !important;
+  color: var(--ap-ink) !important;
+}
+.gradio-container ul.options li.selected,
+.gradio-container ul.options li:hover { background: var(--ap-accent-soft) !important; }
+input[type="checkbox"] { accent-color: var(--ap-accent) !important; min-height: 18px !important; min-width: 18px !important; }
+label:has(input[type="checkbox"]) { border: 1px solid var(--ap-line-strong) !important; border-radius: var(--ap-radius-sm) !important; color: var(--ap-ink) !important; padding: 8px 10px !important; }
+label:has(input[type="checkbox"]:checked) { background: var(--ap-accent-soft) !important; border-color: var(--ap-accent) !important; }
+/* Radio groups (e.g. Text / Voice) — keep light, never dark pills */
+input[type="radio"] { accent-color: var(--ap-accent) !important; }
+.gradio-container .wrap label:has(input[type="radio"]),
+label:has(input[type="radio"]) {
+  background: var(--ap-surface) !important;
+  border: 1px solid var(--ap-line-strong) !important;
+  border-radius: var(--ap-radius-sm) !important;
+  color: var(--ap-ink) !important;
+  padding: 8px 12px !important;
+}
+.gradio-container .wrap label:has(input[type="radio"]:checked),
+label:has(input[type="radio"]:checked) {
+  background: var(--ap-accent-soft) !important;
+  border-color: var(--ap-accent) !important;
+  color: var(--ap-accent-dark) !important;
+}
+/* Dropdown selected value — show full text, never clip mid-word */
+.gradio-container [data-testid="dropdown"] input,
+.gradio-container [data-testid="dropdown"] .wrap-inner input {
+  text-overflow: ellipsis !important;
+}
+
+/* ------------------------------ Tables ------------------------------ */
+.table-container, .table-wrap, .virtual-table-viewport {
+  background: var(--ap-surface) !important;
+  border: 1px solid var(--ap-line) !important;
+  border-radius: var(--ap-radius-sm) !important;
+}
+.header-table, .dataframe table { font-size: 13px; color: var(--ap-ink) !important; background: var(--ap-surface) !important; border-collapse: collapse !important; }
+.header-cell, .cell-wrap, .header-table .header-cell, .header-table th, .header-table td, .dataframe th {
+  background: var(--ap-surface-soft) !important;
+  color: var(--ap-ink) !important;
+  font-weight: 700 !important;
+  border-color: var(--ap-line) !important;
+}
+.header-cell *, .cell-wrap *, .header-table th *, .header-table td *, .header-content, .header-content *, .header-menu, .header-menu *, .dataframe th span {
+  color: var(--ap-ink) !important; background: transparent !important;
+}
+.table-container tbody tr, .table-container tbody td, .table-container td, .table-container td *, .cell, .cell *, .dataframe td, .dataframe td span {
+  color: var(--ap-ink) !important; background: var(--ap-surface) !important; border-color: var(--ap-line) !important;
+}
+.table-container tbody tr:nth-child(even) td, .table-container tbody tr:nth-child(even) td * { background: var(--ap-surface-soft) !important; }
+.table-container .wrap, .table-container .text, .table-container span { opacity: 1 !important; }
+
+/* ------------------------------ Status cards ------------------------------ */
+.ap-status-grid { display: grid; gap: 12px; grid-template-columns: repeat(5, minmax(0, 1fr)); margin: 14px 0 16px; }
+.ap-status-card {
+  background: var(--ap-surface);
+  border: 1px solid var(--ap-line);
+  border-radius: var(--ap-radius-sm);
+  padding: 14px 16px;
+  box-shadow: var(--ap-shadow-soft);
+}
+.ap-status-label { color: var(--ap-muted); font-size: 12px; font-weight: 600; letter-spacing: .03em; text-transform: uppercase; }
+.ap-status-value { color: var(--ap-ink); font-size: 28px; font-weight: 800; line-height: 1; margin-top: 8px; }
+.ap-green { border-top: 3px solid var(--ap-green); }
+.ap-reminder { border-top: 3px solid var(--ap-gold); }
+.ap-amber { border-top: 3px solid var(--ap-amber); }
+.ap-red { border-top: 3px solid var(--ap-red); }
+
+/* ------------------------------ Build panels ------------------------------ */
+.ap-build-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-top: 12px; }
+.ap-build-panel { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); color: var(--ap-ink); padding: 16px; box-shadow: var(--ap-shadow-soft); }
+.ap-build-panel h3 { color: var(--ap-ink); font-size: 17px; margin: 0 0 8px; }
+.ap-build-panel p, .ap-build-panel li { color: var(--ap-ink-soft); font-size: 14px; line-height: 1.55; }
+.ap-build-panel ul { margin: 8px 0 0; padding-left: 18px; }
+
+/* ------------------------------ Autopilot ------------------------------ */
+.ap-autopilot { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); color: var(--ap-ink); display: grid; gap: 8px; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); margin: 10px 0 14px; padding: 14px; box-shadow: var(--ap-shadow-soft); }
+.ap-autopilot, .ap-autopilot * { color: var(--ap-ink); }
+.ap-autopilot-strip { align-items: end; display: grid; gap: 10px; grid-template-columns: 1fr 150px 1fr 160px 150px; margin: 10px 0 14px; }
+
+/* ------------------------------ Section titles ------------------------------ */
+.ap-section-title { color: var(--ap-ink); font-size: 17px; font-weight: 700; margin: 18px 0 10px; align-items: center; display: flex; gap: 8px; }
+.ap-section-title::before { background: var(--ap-accent); border-radius: 999px; content: ""; display: inline-block; height: 8px; width: 8px; }
+
+/* ------------------------------ Generic list items ------------------------------ */
+.ap-list { display: grid; gap: 10px; margin-bottom: 12px; }
+.ap-item {
+  align-items: center; background: var(--ap-surface);
+  border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-accent);
+  border-radius: var(--ap-radius-sm); display: flex; gap: 12px; justify-content: space-between;
+  padding: 14px 16px; box-shadow: var(--ap-shadow-soft); min-height: 92px;
+}
+.ap-item code, .ap-care-link, .ap-case-head code {
+  background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: 6px;
+  color: var(--ap-ink-soft); font-size: 12px; padding: 6px 8px; white-space: nowrap;
+}
+.ap-item-title { color: var(--ap-ink); font-size: 15px; font-weight: 700; }
+.ap-item-meta, .ap-item-note, .ap-family-foot { color: var(--ap-ink-soft); font-size: 13px; line-height: 1.45; }
+.ap-item-note { margin-top: 3px; }
+
+/* Semantic left-borders (kept for green / amber / red meaning) */
+.ap-red, .ap-item.ap-red, .ap-urgent { border-left-color: var(--ap-red) !important; }
+.ap-amber, .ap-item.ap-amber, .ap-attention { border-left-color: var(--ap-amber) !important; }
+.ap-routine, .ap-item.ap-routine { border-left-color: var(--ap-accent) !important; }
+.ap-alert, .ap-check-soon { border-left-color: var(--ap-gold) !important; }
+
+.ap-state, .ap-care-pill {
+  background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: 999px;
+  color: var(--ap-ink-soft); font-size: 11px; font-weight: 700; padding: 5px 10px; text-transform: uppercase; letter-spacing: .02em;
+}
+
+/* ------------------------------ Family cards ------------------------------ */
+.ap-family-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); margin-bottom: 12px; }
+.ap-family-card { background: var(--ap-surface); border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-accent); border-radius: var(--ap-radius-sm); padding: 14px; box-shadow: var(--ap-shadow-soft); min-height: 92px; }
+.ap-family-top { align-items: center; display: flex; justify-content: space-between; gap: 10px; }
+.ap-family-top strong { color: var(--ap-ink); font-size: 15px; }
+.ap-family-top span { color: var(--ap-muted); font-size: 12px; font-weight: 700; text-transform: uppercase; }
+.ap-empty, .ap-case-empty { background: var(--ap-surface); border: 1px dashed var(--ap-line-strong); border-radius: var(--ap-radius-sm); color: var(--ap-ink-soft); padding: 16px; }
+
+/* ------------------------------ Profile ------------------------------ */
+.ap-profile { background: var(--ap-surface); border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-accent); border-radius: var(--ap-radius-sm); color: var(--ap-ink); padding: 18px; box-shadow: var(--ap-shadow-soft); }
+.ap-profile h3 { color: var(--ap-ink); font-size: 21px; font-weight: 800; margin: 0 0 12px; }
+.ap-profile-grid { display: grid; gap: 8px 14px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.ap-profile-row { color: var(--ap-ink); font-size: 14px; }
+.ap-profile-row strong, .ap-profile-section strong { color: var(--ap-ink); font-weight: 700; }
+.ap-profile-section { border-top: 1px solid var(--ap-line); color: var(--ap-ink); margin-top: 14px; padding-top: 12px; }
+.ap-profile-section ul { margin: 8px 0 0 18px; }
+.ap-storage { background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); color: var(--ap-ink); padding: 14px; box-shadow: var(--ap-shadow-soft); }
+.ap-storage strong { color: var(--ap-ink); }
+
+/* ------------------------------ Hero / story / flow ------------------------------ */
+.ap-hero-grid { display: grid; gap: 14px; grid-template-columns: 1.25fr .75fr; margin: 8px 0 16px; }
+.ap-story { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius); padding: 18px; box-shadow: var(--ap-shadow-soft); }
+.ap-story h2 { color: var(--ap-ink); font-size: 21px; line-height: 1.25; margin: 0 0 10px; }
+.ap-story p { color: var(--ap-ink-soft); font-size: 14px; line-height: 1.55; margin: 0; }
+.ap-flow { display: grid; gap: 10px; grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 14px; }
+.ap-flow-step { background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); padding: 12px; }
+.ap-flow-step strong { color: var(--ap-ink); display: block; font-size: 13px; margin-bottom: 4px; }
+.ap-flow-step span { color: var(--ap-muted); display: block; font-size: 12px; line-height: 1.4; }
+.ap-recorder { background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: var(--ap-radius); color: var(--ap-ink); padding: 16px; }
+.ap-recorder strong, .ap-recorder li, .ap-recorder p { color: var(--ap-ink); }
+.ap-recorder ul { margin: 10px 0 0 18px; padding: 0; }
+.ap-recorder li { font-size: 13px; line-height: 1.55; }
+
+/* ------------------------------ Runbook ------------------------------ */
+.ap-runbook { display: grid; gap: 10px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); margin: 10px 0; }
+.ap-runbook article { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); padding: 14px; box-shadow: var(--ap-shadow-soft); }
+.ap-runbook strong { color: var(--ap-ink); display: block; font-size: 13px; margin-bottom: 8px; }
+.ap-runbook code { background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: 6px; color: var(--ap-ink); display: block; font-size: 12px; line-height: 1.4; overflow-wrap: anywhere; padding: 8px; white-space: pre-wrap; }
+
+/* ------------------------------ Overview cockpit layout ------------------------------ */
+.ap-cockpit, .ap-overview-workspace {
+  display: grid; gap: 16px;
   grid-template-columns: minmax(0, 1fr) minmax(360px, .8fr);
   margin: 12px 0 16px;
 }
-.ap-cockpit-main,
-.ap-cockpit-side,
-.ap-care-board,
-.ap-action-panel,
-.ap-composer-shell {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  padding: 14px;
+.ap-cockpit-main, .ap-cockpit-side, .ap-care-board, .ap-action-panel, .ap-composer-shell {
+  background: var(--ap-surface); border: 1px solid var(--ap-line);
+  border-radius: var(--ap-radius); padding: 18px; box-shadow: var(--ap-shadow-soft);
 }
-.ap-action-row {
-  display: grid;
-  gap: 14px;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  margin: 10px 0 16px;
-}
-.ap-action-panel {
-  min-width: 0;
-}
-.ap-action-panel + .ap-action-panel {
-  margin-top: 14px;
-}
-.ap-panel-title {
-  color: #0f172a !important;
-  font-size: 16px;
-  font-weight: 900;
-  margin-bottom: 10px;
-}
-.ap-runbook {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-  margin: 10px 0;
-}
-.ap-runbook article {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  padding: 12px;
-}
-.ap-runbook strong {
-  color: #0f172a !important;
-  display: block;
-  font-size: 13px;
-  margin-bottom: 8px;
-}
-.ap-runbook code {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  color: #0f172a !important;
-  display: block;
-  font-size: 12px;
-  line-height: 1.35;
-  overflow-wrap: anywhere;
-  padding: 8px;
-  white-space: pre-wrap;
-}
-.ap-cockpit-title {
-  color: #0f172a !important;
-  font-size: 18px;
-  font-weight: 900;
-  margin: 0 0 10px;
-}
-.ap-pulse-list {
-  display: grid;
-  gap: 8px;
-}
-.ap-care-board-list {
-  display: grid;
-  gap: 10px;
-}
-.ap-care-card {
-  background: #ffffff;
-  border: 1px solid #94a3b8;
-  border-left: 6px solid #047857;
-  border-radius: 8px;
-  padding: 12px;
-}
-.ap-care-card.ap-urgent {
-  border-left-color: #b91c1c;
-}
-.ap-care-card.ap-attention,
-.ap-care-card.ap-check-soon {
-  border-left-color: #d97706;
-}
-.ap-care-head {
-  align-items: start;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-}
-.ap-care-head strong {
-  color: #0f172a !important;
-  display: block;
-  font-size: 15px;
-}
-.ap-care-head span,
-.ap-care-line {
-  color: #334155 !important;
-  display: block;
-  font-size: 13px;
-  line-height: 1.45;
-  margin-top: 4px;
-}
-.ap-care-pill {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #0f172a !important;
-  flex: 0 0 auto;
-  font-size: 11px;
-  font-weight: 900;
-  padding: 4px 8px;
-  text-transform: uppercase;
-}
-.ap-care-link {
-  background: #f1f5f9;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  color: #0f172a !important;
-  display: inline-block;
-  font-size: 12px;
-  margin-top: 8px;
-  overflow-wrap: anywhere;
-  padding: 6px 8px;
-}
+.ap-action-row { display: grid; gap: 14px; grid-template-columns: repeat(2, minmax(0, 1fr)); margin: 10px 0 16px; }
+.ap-action-panel { min-width: 0; }
+.ap-action-panel + .ap-action-panel { margin-top: 16px; }
+.ap-panel-title { color: var(--ap-ink); font-size: 15px; font-weight: 700; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--ap-line); }
+.ap-cockpit-title { color: var(--ap-ink); font-size: 18px; font-weight: 800; margin: 0 0 12px; }
+
+/* ------------------------------ Care board cards ------------------------------ */
+.ap-pulse-list, .ap-care-board-list { display: grid; gap: 10px; }
+.ap-care-card { background: var(--ap-surface); border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-accent); border-radius: var(--ap-radius-sm); padding: 14px; box-shadow: var(--ap-shadow-soft); }
+.ap-care-card.ap-urgent { border-left-color: var(--ap-red); }
+.ap-care-card.ap-attention, .ap-care-card.ap-check-soon { border-left-color: var(--ap-amber); }
+.ap-care-head { align-items: start; display: flex; gap: 10px; justify-content: space-between; }
+.ap-care-head strong { color: var(--ap-ink); display: block; font-size: 15px; }
+.ap-care-head span, .ap-care-line { color: var(--ap-ink-soft); display: block; font-size: 13px; line-height: 1.5; margin-top: 4px; }
+/* Inline field labels — crisp, not faint */
+.ap-care-line strong { color: var(--ap-ink); font-weight: 700; }
+.ap-care-link { display: inline-block; margin-top: 8px; overflow-wrap: anywhere; white-space: normal; }
+
+/* ------------------------------ Pulse rows ------------------------------ */
 .ap-pulse-row {
-  align-items: center;
-  background: #ffffff;
-  border: 1px solid #cbd5e1;
-  border-left: 6px solid #047857;
-  border-radius: 8px;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1.2fr .85fr 1fr 1.25fr 1fr;
-  min-height: 72px;
-  padding: 10px 12px;
+  align-items: center; background: var(--ap-surface);
+  border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-accent);
+  border-radius: var(--ap-radius-sm); display: grid; gap: 12px;
+  grid-template-columns: 1.2fr .85fr 1fr 1.25fr 1fr; min-height: 72px; padding: 12px 14px; box-shadow: var(--ap-shadow-soft);
 }
-.ap-person-main strong,
-.ap-timeline-person strong,
-.ap-case-card strong {
-  color: #0f172a !important;
-  display: block;
-  font-weight: 900;
+.ap-person-main strong, .ap-timeline-person strong, .ap-case-card strong { color: var(--ap-ink); display: block; font-weight: 700; }
+.ap-person-main span, .ap-timeline-person span, .ap-case-card span { color: var(--ap-muted); display: block; font-size: 12px; line-height: 1.4; }
+.ap-person-status { color: var(--ap-ink); font-size: 13px; font-weight: 700; }
+.ap-person-last, .ap-person-action, .ap-person-route { color: var(--ap-ink-soft); font-size: 13px; line-height: 1.4; }
+
+/* ------------------------------ Case cards ------------------------------ */
+.ap-case-stack { display: grid; gap: 10px; }
+.ap-case-card { background: var(--ap-surface); border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-gold); border-radius: var(--ap-radius-sm); padding: 14px; box-shadow: var(--ap-shadow-soft); }
+.ap-case-head { align-items: flex-start; display: flex; gap: 10px; justify-content: space-between; margin-bottom: 8px; }
+.ap-case-next { background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: 6px; color: var(--ap-ink); font-size: 13px; font-weight: 600; margin-top: 10px; padding: 9px 10px; }
+.ap-case-empty strong { color: var(--ap-ink); display: block; font-size: 15px; margin-bottom: 4px; }
+.ap-case-empty span { color: var(--ap-muted); display: block; font-size: 13px; }
+
+/* ------------------------------ Timeline ------------------------------ */
+.ap-timeline { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius); padding: 16px; box-shadow: var(--ap-shadow-soft); }
+.ap-timeline-person { border-bottom: 1px solid var(--ap-line); margin-bottom: 12px; padding-bottom: 10px; }
+.ap-timeline-event { display: grid; gap: 10px; grid-template-columns: 14px minmax(0, 1fr); padding: 0 0 14px; position: relative; }
+.ap-timeline-event::before { background: var(--ap-line-strong); bottom: 0; content: ""; left: 6px; position: absolute; top: 16px; width: 1px; }
+.ap-timeline-event:last-child::before { display: none; }
+.ap-timeline-dot { background: var(--ap-accent); border-radius: 999px; height: 13px; margin-top: 3px; width: 13px; }
+.ap-timeline-title { color: var(--ap-ink); font-size: 14px; font-weight: 700; }
+.ap-timeline-detail { background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: 6px; color: var(--ap-ink-soft); font-size: 12px; line-height: 1.5; margin-top: 6px; max-height: 90px; overflow: auto; padding: 8px; }
+
+/* ------------------------------ Composer + accordions ------------------------------ */
+.ap-composer-shell { margin-top: 12px; }
+.ap-composer-shell .wrap, .ap-composer-shell .block { min-width: 0 !important; }
+details, .accordion { border-color: var(--ap-line) !important; }
+details > summary { background: var(--ap-surface) !important; border: 1px solid var(--ap-line) !important; border-radius: var(--ap-radius-sm) !important; color: var(--ap-ink) !important; font-weight: 600 !important; padding: 11px 14px !important; }
+details[open] > summary { background: var(--ap-surface-soft) !important; border-bottom-left-radius: 0 !important; border-bottom-right-radius: 0 !important; }
+.prose h3, .markdown h3 { color: var(--ap-ink) !important; }
+
+/* ------------------------------ Shadows roll-up ------------------------------ */
+.ap-status-card, .ap-family-card, .ap-item, .ap-profile, .ap-story, .ap-storage { box-shadow: var(--ap-shadow-soft); }
+
+/* ------------------------------ Brand mark (Big Eye) ------------------------------ */
+.ap-brand { display: flex; align-items: flex-start; gap: 16px; }
+.ap-logo {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 52px; height: 52px; border-radius: 14px;
+  background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+  border: 1px solid #a7f3d0; color: var(--ap-accent-dark);
 }
-.ap-person-main span,
-.ap-timeline-person span,
-.ap-case-card span {
-  color: #475569 !important;
-  display: block;
-  font-size: 12px;
-  line-height: 1.35;
-}
-.ap-person-status {
-  color: #0f172a !important;
-  font-size: 13px;
-  font-weight: 900;
-}
-.ap-person-last,
-.ap-person-action,
-.ap-person-route {
-  color: #334155 !important;
-  font-size: 13px;
-  line-height: 1.35;
-}
-.ap-urgent {
-  border-left-color: #b91c1c !important;
-}
-.ap-attention {
-  border-left-color: #d97706 !important;
-}
-.ap-check-soon {
-  border-left-color: #b45309 !important;
-}
-.ap-routine {
-  border-left-color: #047857 !important;
-}
-.ap-case-stack {
-  display: grid;
-  gap: 10px;
-}
-.ap-case-card {
-  background: #ffffff;
-  border: 1px solid #94a3b8;
-  border-left: 6px solid #b45309;
-  border-radius: 8px;
-  padding: 12px;
-}
-.ap-case-head {
-  align-items: flex-start;
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  margin-bottom: 8px;
-}
-.ap-case-head code {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  color: #334155;
-  font-size: 11px;
-  padding: 4px 6px;
-}
-.ap-case-next {
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
-  color: #0f172a !important;
-  font-size: 13px;
-  font-weight: 700;
-  margin-top: 10px;
-  padding: 8px;
-}
-.ap-case-empty {
-  background: #f8fafc;
-  border: 1px dashed #94a3b8;
-  border-radius: 8px;
-  display: block;
-  padding: 14px;
-}
-.ap-case-empty strong {
-  color: #0f172a !important;
-  display: block;
-  font-size: 15px;
-  margin-bottom: 4px;
-}
-.ap-case-empty span {
-  color: #475569 !important;
-  display: block;
-  font-size: 13px;
-}
-.ap-timeline {
-  background: #ffffff;
-  border: 1px solid #64748b;
-  border-radius: 8px;
-  padding: 14px;
-}
-.ap-timeline-person {
-  border-bottom: 1px solid #cbd5e1;
-  margin-bottom: 12px;
-  padding-bottom: 10px;
-}
-.ap-timeline-event {
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 14px minmax(0, 1fr);
-  padding: 0 0 14px;
-  position: relative;
-}
-.ap-timeline-event::before {
-  background: #cbd5e1;
-  bottom: 0;
-  content: "";
-  left: 6px;
-  position: absolute;
-  top: 16px;
-  width: 1px;
-}
-.ap-timeline-event:last-child::before {
-  display: none;
-}
-.ap-timeline-dot {
-  background: #047857;
-  border-radius: 999px;
-  height: 13px;
-  margin-top: 3px;
-  width: 13px;
-}
-.ap-timeline-title {
-  color: #0f172a !important;
-  font-size: 14px;
-  font-weight: 900;
-}
-.ap-timeline-detail {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
-  color: #334155 !important;
-  font-size: 12px;
-  line-height: 1.45;
-  margin-top: 6px;
-  max-height: 90px;
-  overflow: auto;
-  padding: 8px;
-}
-.ap-autopilot-strip {
-  align-items: end;
-  display: grid;
-  gap: 10px;
-  grid-template-columns: 1fr 150px 1fr 160px 150px;
-  margin: 10px 0 14px;
-}
-.ap-composer-shell {
-  margin-top: 12px;
-}
-.ap-composer-shell .wrap,
-.ap-composer-shell .block {
-  min-width: 0 !important;
-}
+.ap-logo svg { width: 30px; height: 30px; }
+.ap-title-gloss { color: var(--ap-muted); font-size: 15px; font-weight: 600; letter-spacing: 0; }
+
+/* ------------------------------ Model budget bar ------------------------------ */
+.ap-header-side { min-width: 300px; }
+.ap-budget-top { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin-bottom: 8px; }
+.ap-budget-top strong { color: var(--ap-ink); font-size: 13px; }
+.ap-budget-top span { color: var(--ap-accent-dark); font-size: 15px; font-weight: 800; }
+.ap-budget-top em { color: var(--ap-muted); font-style: normal; font-weight: 600; font-size: 12px; }
+.ap-budget-track { display: flex; height: 12px; border-radius: 999px; overflow: hidden; background: var(--ap-line); border: 1px solid var(--ap-line); }
+.ap-budget-seg { height: 100%; }
+.ap-budget-free { height: 100%; background: repeating-linear-gradient(45deg, #eef2f6, #eef2f6 5px, #e2e8f0 5px, #e2e8f0 10px); }
+.ap-budget-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; }
+.ap-budget-key { color: var(--ap-ink-soft); font-size: 11px; display: inline-flex; align-items: center; gap: 5px; }
+.ap-budget-key i { width: 9px; height: 9px; border-radius: 3px; display: inline-block; }
+.ap-budget-key b { color: var(--ap-ink); font-weight: 700; }
+
+/* ------------------------------ Care-loop stepper ------------------------------ */
+.ap-loop { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius); padding: 14px 16px; box-shadow: var(--ap-shadow-soft); margin: 0 0 16px; }
+.ap-loop-head { display: flex; align-items: center; gap: 8px; color: var(--ap-ink); font-size: 13px; margin-bottom: 12px; }
+.ap-loop-head svg { width: 18px; height: 18px; color: var(--ap-accent); }
+.ap-loop-track { display: flex; align-items: stretch; gap: 4px; flex-wrap: wrap; }
+.ap-step { flex: 1 1 0; min-width: 130px; display: flex; align-items: flex-start; gap: 10px; background: var(--ap-surface-soft); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); padding: 10px 12px; }
+.ap-step-num { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 999px; display: grid; place-items: center; background: var(--ap-accent); color: #fff; font-size: 12px; font-weight: 800; }
+.ap-step-body strong { display: block; color: var(--ap-ink); font-size: 13px; }
+.ap-step-body span { display: block; color: var(--ap-muted); font-size: 11px; line-height: 1.35; margin-top: 2px; }
+.ap-loop-arrow { display: flex; align-items: center; color: var(--ap-line-strong); font-size: 22px; font-weight: 700; padding: 0 2px; }
+
+/* ------------------------------ Status tiles (enhanced) ------------------------------ */
+.ap-status-card { position: relative; display: flex; flex-direction: column; }
+.ap-status-top { display: flex; align-items: center; gap: 7px; }
+.ap-status-icon { display: inline-grid; place-items: center; width: 22px; height: 22px; }
+.ap-status-icon svg { width: 16px; height: 16px; }
+.ap-status-foot { color: var(--ap-muted); font-size: 11px; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: .02em; }
+.ap-urgent .ap-status-icon { color: var(--ap-red); }
+.ap-attention .ap-status-icon { color: var(--ap-amber); }
+.ap-check-soon .ap-status-icon { color: var(--ap-gold); }
+.ap-routine .ap-status-icon { color: var(--ap-accent); }
+.ap-status-card.ap-check-soon { border-top: 3px solid var(--ap-gold); }
+.ap-status-card.ap-attention { border-top: 3px solid var(--ap-amber); }
+.ap-status-card.ap-urgent { border-top: 3px solid var(--ap-red); }
+.ap-status-card.ap-routine { border-top: 3px solid var(--ap-accent); }
+.ap-closure { border-top: 3px solid var(--ap-accent); }
+.ap-closure-body { display: flex; align-items: center; gap: 12px; margin-top: 8px; }
+.ap-ring { flex: 0 0 auto; width: 50px; height: 50px; border-radius: 50%; display: grid; place-items: center; }
+.ap-ring-inner { width: 38px; height: 38px; border-radius: 50%; background: var(--ap-surface); display: grid; place-items: center; font-size: 12px; font-weight: 800; color: var(--ap-accent-dark); }
+.ap-closure-meta strong { display: block; color: var(--ap-ink); font-size: 15px; font-weight: 800; }
+.ap-closure-meta span { color: var(--ap-muted); font-size: 11px; }
+
+/* ------------------------------ Avatars + concern meter ------------------------------ */
+.ap-care-who { display: flex; align-items: center; gap: 10px; }
+.ap-avatar { flex: 0 0 auto; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-size: 13px; font-weight: 800; letter-spacing: .02em; }
+.ap-care-meta { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.ap-concern { display: flex; align-items: center; gap: 7px; }
+.ap-concern-track { width: 64px; height: 7px; border-radius: 999px; background: var(--ap-line); overflow: hidden; display: inline-block; }
+.ap-concern-fill { display: block; height: 100%; border-radius: 999px; }
+.ap-concern-num { font-size: 11px; font-weight: 800; }
+.ap-c-green, .ap-c-green.ap-concern-fill { color: var(--ap-accent-dark); }
+.ap-concern-fill.ap-c-green { background: var(--ap-accent); }
+.ap-c-amber { color: var(--ap-amber); }
+.ap-concern-fill.ap-c-amber { background: var(--ap-amber); }
+.ap-c-red { color: var(--ap-red); }
+.ap-concern-fill.ap-c-red { background: var(--ap-red); }
+
+/* ------------------------------ Empty-state art + toolbar ------------------------------ */
+.ap-case-empty { text-align: center; padding: 28px 18px; }
+.ap-empty-art { display: inline-grid; place-items: center; width: 56px; height: 56px; border-radius: 50%; background: var(--ap-accent-soft); margin-bottom: 6px; }
+.ap-empty-art svg { width: 30px; height: 30px; }
+.ap-empty-art.ap-c-green { color: var(--ap-accent); }
+.ap-toolbar { gap: 10px !important; align-items: center; }
+.ap-toolbar button { white-space: nowrap !important; min-width: 150px; }
+
+/* ------------------------------ Responsive ------------------------------ */
 @media (max-width: 980px) {
-  .ap-cockpit,
-  .ap-overview-workspace,
-  .ap-action-row,
-  .ap-autopilot-strip {
-    grid-template-columns: 1fr;
-  }
-  .ap-pulse-row {
-    grid-template-columns: 1fr;
-  }
+  .ap-cockpit, .ap-overview-workspace, .ap-action-row, .ap-autopilot-strip { grid-template-columns: 1fr; }
+  .ap-pulse-row { grid-template-columns: 1fr; }
+  .ap-status-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .ap-loop-arrow { display: none; }
+}
+@media (max-width: 820px) {
+  .ap-header, .ap-hero-grid { display: block; }
+  .ap-title { white-space: normal; }
+  .ap-header-side, .ap-recorder { margin-top: 12px; }
+  .ap-flow, .ap-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 """
 
@@ -1317,10 +900,11 @@ def family_pulse_html(limit=10):
         severity[row["member_id"]] = min(severity[row["member_id"]], request_rank)
 
     if not board:
-        return """
+        return f"""
         <section class="ap-case-empty">
-          <strong>No open care actions</strong>
-          <span>Run Autopilot or create a check-in. People with open cases, pending replies, or review-needed updates will appear here.</span>
+          <span class="ap-empty-art ap-c-green">{ICON_HEART}</span>
+          <strong>All clear — no open care actions</strong>
+          <span>Everyone the family watches is on a routine footing. New cases, pending replies, or review-needed updates will appear here. Try <em>Play red scenario</em> to see the loop in action.</span>
         </section>
         """
 
@@ -1369,15 +953,23 @@ def family_pulse_html(limit=10):
                 lines.append(f"<div class=\"ap-care-line\"><strong>Evidence:</strong> {esc(transcript)}</div>")
         next_action = alert_next_action(item["alerts"][0]["type"]) if item["alerts"] else "Wait for the expected responder, or resend the link if the family is blocked."
         lines.append(f"<div class=\"ap-care-line\"><strong>Next:</strong> {esc(next_action)}</div>")
+        concern_level = evidence["concern_level"] if evidence else None
+        meter = concern_meter_html(concern_level)
         cards.append(
             f"""
             <article class="ap-care-card ap-{card_class}">
               <div class="ap-care-head">
-                <div>
-                  <strong>{esc(item['name'])}</strong>
-                  <span>{esc(item['city'] or 'Location not set')} · {esc(item['role'] or 'family')}</span>
+                <div class="ap-care-who">
+                  {avatar_html(item['name'])}
+                  <div>
+                    <strong>{esc(item['name'])}</strong>
+                    <span>{esc(item['city'] or 'Location not set')} · {esc(item['role'] or 'family')}</span>
+                  </div>
                 </div>
-                <span class="ap-care-pill">{esc(status_label)}</span>
+                <div class="ap-care-meta">
+                  <span class="ap-care-pill">{esc(status_label)}</span>
+                  {meter}
+                </div>
               </div>
               {''.join(lines)}
             </article>
@@ -1801,19 +1393,136 @@ def friendly_reason(reason):
     }.get(reason or "", (reason or "Check-in").replace("_", " ").title())
 
 
+# --- Inline SVG icon set (stroke uses currentColor so tiles can tint them) ---
+ICON_SIREN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 18v-6a5 5 0 0 1 10 0v6"/><path d="M5 21h14"/><path d="M12 3v2"/><path d="m19 5-1.5 1.5"/><path d="m5 5 1.5 1.5"/></svg>'
+ICON_ALERT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.7 18-8-14a2 2 0 0 0-3.4 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.7-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>'
+ICON_CLOCK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'
+ICON_HEART = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 14c1.5-1.5 3-3.2 3-5.5A4.5 4.5 0 0 0 12 5.5 4.5 4.5 0 0 0 2 8.5c0 2.3 1.5 4 3 5.5l7 7Z"/></svg>'
+ICON_EYE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>'
+
+
+def loop_closure_stats():
+    row = db.one("SELECT COUNT(*) AS total, SUM(CASE WHEN resolved = 1 THEN 1 ELSE 0 END) AS closed FROM alerts")
+    total = (row and row["total"]) or 0
+    closed = (row and row["closed"]) or 0
+    rate = int(round(closed / total * 100)) if total else 100
+    return {"total": total, "closed": closed, "open": total - closed, "rate": rate}
+
+
+def model_budget_bar_html():
+    cap = 32.0
+    segments = [
+        ("ASR", ASR_CONFIG["primary"]["label"], ASR_CONFIG["primary"]["parameters_b"], "#047857"),
+        ("Translate", TRANSLATION_CONFIG["label"], TRANSLATION_CONFIG["parameters_b"], "#0891b2"),
+        ("LLM", LLM_CONFIG["label"], LLM_CONFIG["parameters_b"], "#7c3aed"),
+        ("TTS", TTS_CONFIG["label"], TTS_CONFIG["parameters_b"], "#d97706"),
+    ]
+    total = total_parameter_budget_b()
+    bars, legend = [], []
+    for short, label, params, color in segments:
+        width = max(params / cap * 100, 0)
+        bars.append(f'<span class="ap-budget-seg" style="width:{width:.2f}%;background:{color}" title="{esc(label)} · {params}B"></span>')
+        legend.append(f'<span class="ap-budget-key"><i style="background:{color}"></i>{esc(short)} <b>{params}B</b></span>')
+    free = max(0.0, (cap - total) / cap * 100)
+    bars.append(f'<span class="ap-budget-free" style="width:{free:.2f}%" title="Headroom under cap"></span>')
+    return f"""
+<div class="ap-budget">
+  <div class="ap-budget-top"><strong>Small-model budget</strong><span>{total:.1f}B <em>/ {cap:.0f}B cap</em></span></div>
+  <div class="ap-budget-track">{''.join(bars)}</div>
+  <div class="ap-budget-legend">{''.join(legend)}</div>
+</div>
+"""
+
+
+def care_loop_stepper_html(active=None):
+    steps = [
+        ("Monitor", "Watch check-ins &amp; silence"),
+        ("Interpret", "Score health &amp; isolation"),
+        ("Route", "Find the nearest relative"),
+        ("Escalate", "Nudge until someone acts"),
+        ("Close", "Confirm with a field report"),
+    ]
+    cells = []
+    for index, (title, sub) in enumerate(steps, start=1):
+        cells.append(
+            f"""
+            <div class="ap-step">
+              <span class="ap-step-num">{index}</span>
+              <div class="ap-step-body"><strong>{title}</strong><span>{sub}</span></div>
+            </div>
+            """
+        )
+    return f"""
+<div class="ap-loop">
+  <div class="ap-loop-head">{ICON_EYE}<strong>How Ani Kɛse closes the loop</strong></div>
+  <div class="ap-loop-track">{'<span class="ap-loop-arrow">&rsaquo;</span>'.join(cells)}</div>
+</div>
+"""
+
+
+AVATAR_TINTS = [
+    ("#ecfdf5", "#047857"),
+    ("#eff6ff", "#1d4ed8"),
+    ("#fef3c7", "#b45309"),
+    ("#faf5ff", "#7c3aed"),
+    ("#fff1f2", "#be123c"),
+    ("#f0fdfa", "#0f766e"),
+]
+
+
+def avatar_html(name):
+    parts = [piece for piece in (name or "").split() if piece]
+    initials = "".join(piece[0] for piece in parts[:2]).upper() or "?"
+    tint_bg, tint_fg = AVATAR_TINTS[sum(ord(ch) for ch in (name or "?")) % len(AVATAR_TINTS)]
+    return f'<span class="ap-avatar" style="background:{tint_bg};color:{tint_fg}">{esc(initials)}</span>'
+
+
+def concern_meter_html(level):
+    if level is None:
+        return ""
+    level = max(0, min(10, int(level)))
+    tone = "red" if level >= 7 else ("amber" if level >= 4 else "green")
+    return f"""
+<div class="ap-concern" title="Concern score {level} of 10">
+  <span class="ap-concern-track"><span class="ap-concern-fill ap-c-{tone}" style="width:{level * 10}%"></span></span>
+  <span class="ap-concern-num ap-c-{tone}">{level}/10</span>
+</div>
+"""
+
+
 def status_cards_html():
     rows = dashboard_rows()
     counts = {status: 0 for status in ["Routine", "Check soon", "Needs attention", "Urgent follow-up"]}
     for row in rows:
         counts[row["Status"]] = counts.get(row["Status"], 0) + 1
-    return f"""
-<div class="ap-status-grid">
-  <div class="ap-status-card ap-routine"><div class="ap-status-label">Routine</div><div class="ap-status-value">{counts.get("Routine", 0)}</div></div>
-  <div class="ap-status-card ap-check-soon"><div class="ap-status-label">Check soon</div><div class="ap-status-value">{counts.get("Check soon", 0)}</div></div>
-  <div class="ap-status-card ap-attention"><div class="ap-status-label">Needs attention</div><div class="ap-status-value">{counts.get("Needs attention", 0)}</div></div>
-  <div class="ap-status-card ap-urgent"><div class="ap-status-label">Urgent follow-up</div><div class="ap-status-value">{counts.get("Urgent follow-up", 0)}</div></div>
-</div>
-"""
+    loop = loop_closure_stats()
+    tiles = [
+        ("ap-urgent", ICON_SIREN, "Urgent follow-up", counts.get("Urgent follow-up", 0), "act now"),
+        ("ap-attention", ICON_ALERT, "Needs attention", counts.get("Needs attention", 0), "today"),
+        ("ap-check-soon", ICON_CLOCK, "Check soon", counts.get("Check soon", 0), "this week"),
+        ("ap-routine", ICON_HEART, "Routine", counts.get("Routine", 0), "all well"),
+    ]
+    tile_html = "".join(
+        f"""
+        <div class="ap-status-card {tone}">
+          <div class="ap-status-top"><span class="ap-status-icon">{icon}</span><span class="ap-status-label">{label}</span></div>
+          <div class="ap-status-value">{value}</div>
+          <div class="ap-status-foot">{foot}</div>
+        </div>
+        """
+        for tone, icon, label, value, foot in tiles
+    )
+    ring = f"conic-gradient(var(--ap-accent) {loop['rate'] * 3.6:.0f}deg, var(--ap-line) 0)"
+    closure_html = f"""
+    <div class="ap-status-card ap-closure">
+      <div class="ap-status-top"><span class="ap-status-label">Loop closure</span></div>
+      <div class="ap-closure-body">
+        <span class="ap-ring" style="background:{ring}"><span class="ap-ring-inner">{loop['rate']}%</span></span>
+        <div class="ap-closure-meta"><strong>{loop['closed']} of {loop['total']}</strong><span>cases resolved</span></div>
+      </div>
+    </div>
+    """
+    return f'<div class="ap-status-grid">{tile_html}{closure_html}</div>'
 
 
 def alert_rows():
@@ -2328,6 +2037,53 @@ def resolve_selected_alert(alert_id, resolved_by, notes):
         family_pulse_html(),
         care_routes_html(),
         status_cards_html(),
+    )
+
+
+def play_red_scenario():
+    db.seed_demo_data()  # no-op when data already exists
+    target = db.one("SELECT id, name FROM members WHERE id = 'elder_kwame' AND active = 1")
+    if not target:
+        target = db.one(
+            "SELECT id, name FROM members WHERE active = 1 AND COALESCE(is_coordinator, 0) = 0 ORDER BY created_at LIMIT 1"
+        )
+    if not target:
+        raise gr.Error("Add at least one family member first, then play the scenario.")
+    transcript = "Me koko mu yɛ me ya, na me nko ara na mewɔ fie. Mintumi nnante yie."
+    summary = f"{target['name']} reports chest pain, is home alone, and cannot walk well. Needs urgent follow-up."
+    flags = ["chest_pain", "isolation", "reduced_mobility"]
+    analysis = {
+        "concern_level": 8,
+        "evidence": ["chest pain", "home alone", "walking with difficulty"],
+        "recommended_action": "Ask the nearest relative to visit today and arrange medical help if needed.",
+        "confidence": "high",
+    }
+    db.add_checkin(
+        target["id"],
+        "self",
+        transcript,
+        summary,
+        8,
+        flags,
+        "twi",
+        analysis_status="complete",
+        analysis_json=analysis,
+    )
+    db.maybe_create_concern_alert(target["id"], 8, summary, flags, transcript, analysis_json=analysis)
+    contact = route_contact(target["id"])
+    routed = f" Routed to {contact['name']}." if contact else " No nearby relative is assigned yet — add one in Family."
+    message = (
+        f"🔴 Red scenario played for {target['name']}. A concern score of 8/10 was logged and a red alert is now open."
+        f"{routed} Open the case below, draft a nudge, then close the loop with a field report."
+    )
+    return (
+        message,
+        status_cards_html(),
+        family_pulse_html(),
+        attention_queue_html(),
+        active_requests_html(),
+        recent_responses_html(),
+        gr.Dropdown(choices=alert_choices()),
     )
 
 
@@ -2914,22 +2670,31 @@ def build_app():
     db.init_db()
     with gr.Blocks(title="Ani Kɛse - Family Care Network") as demo:
         gr.HTML(
-            """
+            f"""
             <div class="ap-header">
-              <div class="ap-title">Ani Kɛse</div>
-              <div class="ap-subtitle">
-                A small AI care network for Ghanaian families: multilingual check-ins, concern scoring,
-                silence detection, nearest-relative nudges, and loop closure for family members who may not ask for help.
+              <div class="ap-brand">
+                <span class="ap-logo">{ICON_EYE}</span>
+                <div>
+                  <div class="ap-title">Ani Kɛse <span class="ap-title-gloss">· the family's big eye</span></div>
+                  <div class="ap-subtitle">
+                    A small-model AI care network for Ghanaian families: multilingual check-ins, concern scoring,
+                    silence detection, nearest-relative nudges, and loop closure for elders who may not ask for help.
+                  </div>
+                </div>
               </div>
+              <div class="ap-header-side">{model_budget_bar_html()}</div>
             </div>
             """
         )
 
         with gr.Tabs():
             with gr.Tab("Overview"):
-                status_cards = gr.HTML(status_cards_html(), visible=False)
-                with gr.Row():
-                    refresh = gr.Button("Refresh", variant="primary", scale=0)
+                status_cards = gr.HTML(status_cards_html())
+                gr.HTML(care_loop_stepper_html())
+                with gr.Row(elem_classes=["ap-toolbar"]):
+                    demo_btn = gr.Button("▶ Play red scenario", variant="primary", scale=0)
+                    refresh = gr.Button("Refresh", variant="secondary", scale=0)
+                demo_output = gr.Markdown()
 
                 source_state = gr.State("self")
                 with gr.Row(elem_classes=["ap-overview-workspace"]):
@@ -2951,7 +2716,7 @@ def build_app():
                             request_member_picker = gr.Dropdown(choices=member_choices(), label="Person to check on")
                             with gr.Row():
                                 manual_type = gr.Dropdown(
-                                    choices=[("Ask this person directly", "elder_checkin"), ("Ask a relative for an update", "field_report")],
+                                    choices=[("This person", "elder_checkin"), ("A relative", "field_report")],
                                     value="elder_checkin",
                                     label="Who should answer",
                                 )
@@ -3224,6 +2989,10 @@ def build_app():
             resolve_selected_alert,
             inputs=[alert_picker, resolved_by, resolution_notes],
             outputs=[resolve_output, alerts, alert_picker, family_table, care_routes, status_cards],
+        )
+        demo_btn.click(
+            play_red_scenario,
+            outputs=[demo_output, status_cards, family_table, alerts, requests, recent_responses, alert_picker],
         )
         create_request_btn.click(
             create_manual_request,
