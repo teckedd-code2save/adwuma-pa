@@ -157,6 +157,8 @@ def seed_demo_data() -> None:
 
 def clear_all_data() -> None:
     with connect() as conn:
+        conn.execute("UPDATE checkup_requests SET related_alert_id = NULL, related_nudge_id = NULL")
+        conn.execute("UPDATE nudges SET request_id = NULL, checkin_id = NULL")
         for table in [
             "inbound_messages",
             "outbound_messages",
