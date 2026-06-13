@@ -2934,7 +2934,7 @@ def build_app():
                 source_state = gr.State("self")
                 with gr.Row(elem_classes=["ap-overview-workspace"]):
                     with gr.Column(scale=1, elem_classes=["ap-care-board"]):
-                        gr.HTML('<div class="ap-cockpit-title">Care board</div>')
+                        gr.HTML('<div class="ap-cockpit-title">Open Priorities</div>')
                         family_table = gr.HTML(family_pulse_html())
                         requests = gr.HTML(active_requests_html(), visible=False)
                         alerts = gr.HTML(attention_queue_html(), visible=False)
@@ -2945,7 +2945,7 @@ def build_app():
                         resolve_output = gr.Textbox(label="Closure result", interactive=False)
                         recent_responses = gr.HTML(recent_responses_html(), visible=False)
                     with gr.Column(scale=1):
-                        gr.HTML('<div class="ap-cockpit-title">Care actions</div>')
+                        gr.HTML('<div class="ap-cockpit-title">Quick Actions</div>')
                         with gr.Group(elem_classes=["ap-action-panel"]):
                             gr.HTML('<div class="ap-panel-title">Send a check-in</div>')
                             request_member_picker = gr.Dropdown(choices=member_choices(), label="Person to check on")
