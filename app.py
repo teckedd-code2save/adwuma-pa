@@ -508,7 +508,13 @@ label:has(input[type="radio"]:checked) {
 .ap-care-head span, .ap-care-line { color: var(--ap-ink-soft); display: block; font-size: 13px; line-height: 1.5; margin-top: 4px; }
 /* Inline field labels — crisp, not faint */
 .ap-care-line strong { color: var(--ap-ink); font-weight: 700; }
-.ap-care-link { display: inline-block; margin-top: 8px; overflow-wrap: anywhere; white-space: normal; }
+.ap-care-thread { display: grid; gap: 8px; margin-top: 12px; }
+.ap-bubble { border: 1px solid var(--ap-line); border-radius: 12px; color: var(--ap-ink); font-size: 13px; line-height: 1.45; max-width: 88%; padding: 9px 11px; }
+.ap-bubble strong { color: var(--ap-ink); display: block; font-size: 12px; margin-bottom: 3px; }
+.ap-bubble span { color: var(--ap-muted); display: block; font-size: 11px; margin-top: 5px; }
+.ap-bubble-system { background: var(--ap-surface-soft); justify-self: start; border-bottom-left-radius: 4px; }
+.ap-bubble-responder { background: var(--ap-accent-soft); border-color: rgba(5, 150, 105, .25); justify-self: end; border-bottom-right-radius: 4px; }
+.ap-bubble-action { background: #fff7ed; border-color: #fed7aa; justify-self: start; }
 
 /* ------------------------------ Pulse rows ------------------------------ */
 .ap-pulse-row {
@@ -926,6 +932,7 @@ def family_pulse_html(limit=10):
                 "role": row["family_role"],
                 "alerts": [],
                 "requests": [],
+                "events": [],
             }
             severity[member_id] = 9
         return board[member_id]
@@ -936,6 +943,15 @@ def family_pulse_html(limit=10):
         note = first_note_line(humanize_legacy_text(row["notes"], row["name"]))
         if not item["alerts"]:
             item["alerts"].append({"label": label, "note": note, "type": row["alert_type"]})
+        item["events"].append(
+            {
+                "at": row["created_at"],
+                "side": "system",
+                "title": label,
+                "body": note,
+                "meta": "Ani Kɛse opened a case",
+            }
+        )
         severity[row["member_id"]] = min(severity[row["member_id"]], attention_sort_key({"Type": row["alert_type"]}))
 
     for row in requests:
@@ -959,6 +975,15 @@ def family_pulse_html(limit=10):
                     "priority": row["priority"] or "routine",
                 }
             )
+        item["events"].append(
+            {
+                "at": row["created_at"],
+                "side": "system",
+                "title": "Waiting for " + responder,
+                "body": detail,
+                "meta": f"{'Relative update' if is_report else 'Family check-in'} · {human_priority_label(row['priority'])} · {row['status']}",
+            }
+        )
         request_rank = {"red": 0, "amber": 1, "routine": 3}.get(row["priority"] or "routine", 3)
         severity[row["member_id"]] = min(severity[row["member_id"]], request_rank)
 
@@ -975,7 +1000,7 @@ def family_pulse_html(limit=10):
     placeholders = ",".join("?" for _ in member_ids)
     latest = db.rows(
         f"""
-        SELECT c.member_id, c.submitted_at, c.analysis_status, c.concern_level,
+        SELECT c.member_id, c.submitted_at, c.analysis_status, c.concern_level, c.source,
                c.summary, c.translation, c.transcript, c.raw_input, c.processing_error
         FROM checkins c
         JOIN (
@@ -994,28 +1019,34 @@ def family_pulse_html(limit=10):
         primary_type = item["alerts"][0]["type"] if item["alerts"] else item["requests"][0]["priority"]
         card_class = case_class(primary_type)
         status_label = item["alerts"][0]["label"] if item["alerts"] else "Waiting for reply"
-        lines = []
-        for alert in item["alerts"][:1]:
-            lines.append(f"<div class=\"ap-care-line\"><strong>Case:</strong> {esc(alert['label'])}. {esc(alert['note'])}</div>")
-        for request in item["requests"][:1]:
-            lines.append(
-                f"""
-                <div class="ap-care-line"><strong>Waiting:</strong> {esc(request['label'])} · {esc(request['reason'])} · {esc(request['status'])}</div>
-                <div class="ap-care-line"><strong>Responder:</strong> {esc(request['responder'])}</div>
-                <div class="ap-care-line">{esc(request['detail'])}</div>
-                <code class="ap-care-link">/checkin/{esc(request['token'])}</code>
-                """
-            )
         evidence = latest_by_member.get(member_id)
         if evidence:
             concern = "" if evidence["concern_level"] is None else f" · concern {evidence['concern_level']}/10"
             summary = evidence.get("summary") or evidence.get("processing_error") or "Latest reply saved for review."
             transcript = evidence.get("translation") or evidence.get("transcript") or evidence.get("raw_input") or ""
-            lines.append(f"<div class=\"ap-care-line\"><strong>Latest reply:</strong> {esc(evidence['analysis_status'])}{esc(concern)}. {esc(summary)}</div>")
+            reply_body = summary
             if transcript:
-                lines.append(f"<div class=\"ap-care-line\"><strong>Evidence:</strong> {esc(transcript)}</div>")
+                reply_body = f"{summary} Evidence: {transcript}"
+            item["events"].append(
+                {
+                    "at": evidence["submitted_at"],
+                    "side": "responder",
+                    "title": f"{item['name']} replied",
+                    "body": reply_body,
+                    "meta": f"{evidence['analysis_status']}{concern}",
+                }
+            )
         next_action = alert_next_action(item["alerts"][0]["type"]) if item["alerts"] else "Wait for the expected responder, or resend the link if the family is blocked."
-        lines.append(f"<div class=\"ap-care-line\"><strong>Next:</strong> {esc(next_action)}</div>")
+        item["events"].append(
+            {
+                "at": "",
+                "side": "action",
+                "title": "Next step",
+                "body": next_action,
+                "meta": "Coordinator action",
+            }
+        )
+        thread = care_thread_html(item["events"])
         concern_level = evidence["concern_level"] if evidence else None
         meter = concern_meter_html(concern_level)
         cards.append(
@@ -1034,13 +1065,37 @@ def family_pulse_html(limit=10):
                   {meter}
                 </div>
               </div>
-              {''.join(lines)}
+              {thread}
             </article>
             """
         )
         if len(cards) >= limit:
             break
     return '<section class="ap-care-board-list">' + "\n".join(cards) + "</section>"
+
+
+def care_thread_html(events):
+    def event_key(event):
+        return event.get("at") or "9999"
+
+    bubbles = []
+    for event in sorted(events, key=event_key):
+        side = event.get("side") or "system"
+        css = {
+            "system": "ap-bubble-system",
+            "responder": "ap-bubble-responder",
+            "action": "ap-bubble-action",
+        }.get(side, "ap-bubble-system")
+        bubbles.append(
+            f"""
+            <div class="ap-bubble {css}">
+              <strong>{esc(event.get('title') or '')}</strong>
+              {esc(event.get('body') or '')}
+              <span>{esc(event.get('meta') or event.get('at') or '')}</span>
+            </div>
+            """
+        )
+    return '<div class="ap-care-thread">' + "\n".join(bubbles) + "</div>"
 
 
 def item_sort_name(item):
@@ -1283,7 +1338,6 @@ def active_requests_html(limit=8):
     for row in rows:
         priority = row["priority"] or "routine"
         detail = humanize_legacy_text(row["reason_detail"], row["name"]) or friendly_reason(row["reason_code"])
-        link = f"/checkin/{row['token']}"
         is_report = row["request_type"] == "field_report"
         label = "Relative update" if is_report else "Family check-in"
         responder = (
@@ -1300,7 +1354,6 @@ def active_requests_html(limit=8):
                 <div class="ap-item-note"><strong>Expected responder:</strong> {esc(responder)}</div>
                 <div class="ap-item-note">{esc(detail)}</div>
               </div>
-              <code>{esc(link)}</code>
             </article>
             """
         )

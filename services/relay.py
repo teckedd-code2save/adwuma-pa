@@ -229,7 +229,7 @@ def scan_silence() -> list[str]:
                     related_nudge_id=nudge_id,
                 )
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
-            actions.append(f"Urgent follow-up for {member['name']}: case {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
+            actions.append(f"Urgent follow-up for {member['name']}: case {alert_id}. Check-in request queued.{routed}")
         elif silent >= amber:
             silent_text = human_duration(silent)
             amber_text = human_duration(amber)
@@ -260,7 +260,7 @@ def scan_silence() -> list[str]:
                     related_nudge_id=nudge_id,
                 )
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
-            actions.append(f"Needs attention for {member['name']}: case {alert_id}. Request {checkin_link_for_request(request_id)} queued.{routed}")
+            actions.append(f"Needs attention for {member['name']}: case {alert_id}. Check-in request queued.{routed}")
         elif silent >= reminder:
             silent_text = human_duration(silent)
             reminder_text = human_duration(reminder)
@@ -277,7 +277,7 @@ def scan_silence() -> list[str]:
                 priority="routine",
                 related_alert_id=alert_id,
             )
-            actions.append(f"Check soon for {member['name']}: case {alert_id}. Request {checkin_link_for_request(request_id)} queued.")
+            actions.append(f"Check soon for {member['name']}: case {alert_id}. Check-in request queued.")
     if not actions:
         actions.append("No silence escalations. All active family members are inside their configured thresholds.")
     return actions
