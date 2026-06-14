@@ -6,6 +6,7 @@ import io
 import json
 import os
 import re
+from datetime import datetime
 from urllib.parse import parse_qs
 
 from fastapi import BackgroundTasks, FastAPI, Request, Response
@@ -1086,16 +1087,27 @@ def care_thread_html(events):
             "responder": "ap-bubble-responder",
             "action": "ap-bubble-action",
         }.get(side, "ap-bubble-system")
+        footer = " · ".join(part for part in [event.get("meta") or "", short_time(event.get("at"))] if part)
         bubbles.append(
             f"""
             <div class="ap-bubble {css}">
               <strong>{esc(event.get('title') or '')}</strong>
               {esc(event.get('body') or '')}
-              <span>{esc(event.get('meta') or event.get('at') or '')}</span>
+              <span>{esc(footer)}</span>
             </div>
             """
         )
     return '<div class="ap-care-thread">' + "\n".join(bubbles) + "</div>"
+
+
+def short_time(value):
+    if not value:
+        return ""
+    try:
+        parsed = datetime.fromisoformat(str(value))
+        return parsed.strftime("%b %-d, %H:%M")
+    except Exception:
+        return str(value)
 
 
 def item_sort_name(item):
