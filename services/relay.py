@@ -178,8 +178,9 @@ def checkin_link_for_request(request_id: str) -> str:
     return f"/checkin/{request['token']}"
 
 
-def scan_silence() -> list[str]:
+def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
     actions: list[str] = []
+    excluded = set(excluded_member_ids or [])
     members = db.rows(
         """
         SELECT m.*,
@@ -194,6 +195,8 @@ def scan_silence() -> list[str]:
         """
     )
     for member in members:
+        if member["id"] in excluded:
+            continue
         silent = minutes_since(member.get("last_checkin_at"))
         amber = member.get("escalation_minutes_amber") or 14400
         red = member.get("escalation_minutes_red") or 20160

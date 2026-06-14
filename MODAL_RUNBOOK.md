@@ -192,7 +192,7 @@ hf spaces variables set build-small-hackathon/family-care-network ADWUMA_PA_AUTO
 modal secret create adwuma-pa-autopilot ADWUMA_PA_SPACE_URL=https://build-small-hackathon-family-care-network.hf.space ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
 ```
 
-The Modal cron wakes every 15 minutes, but the Space decides whether a scan is due using the dashboard scan interval.
+The Modal cron wakes every 30 minutes, but the Space decides whether a scan is due using the dashboard scan interval.
 
 ```bash
 modal deploy modal_backend/cron.py

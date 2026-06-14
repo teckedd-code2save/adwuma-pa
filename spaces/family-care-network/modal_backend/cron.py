@@ -14,7 +14,7 @@ image = modal.Image.debian_slim(python_version="3.11").pip_install("requests")
 @app.function(
     image=image,
     secrets=[modal.Secret.from_name("adwuma-pa-autopilot")],
-    schedule=modal.Cron("*/15 * * * *", timezone="Africa/Accra"),
+    schedule=modal.Cron("*/30 * * * *", timezone="Africa/Accra"),
     min_containers=0,
     max_containers=1,
     buffer_containers=0,

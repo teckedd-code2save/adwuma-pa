@@ -60,6 +60,7 @@ def init_db() -> None:
     with connect() as conn:
         conn.executescript(SCHEMA_PATH.read_text())
         migrate_schema(conn)
+    migrate_autopilot_defaults()
 
 
 def migrate_schema(conn: sqlite3.Connection) -> None:
@@ -456,19 +457,36 @@ def set_setting(key: str, value: Any) -> None:
 def autopilot_settings() -> dict[str, Any]:
     return {
         "enabled": bool(get_setting("autopilot.enabled", False)),
-        "scan_interval_minutes": int(get_setting("autopilot.scan_interval_minutes", 360)),
+        "scan_interval_minutes": int(get_setting("autopilot.scan_interval_minutes", 30)),
         "send_whatsapp": bool(get_setting("autopilot.send_whatsapp", False)),
+        "excluded_member_ids": list(get_setting("autopilot.excluded_member_ids", [])),
         "last_scan_at": get_setting("autopilot.last_scan_at", None),
         "last_scan_result": get_setting("autopilot.last_scan_result", []),
     }
 
 
-def save_autopilot_settings(enabled: bool, scan_interval_minutes: int, send_whatsapp: bool) -> dict[str, Any]:
-    interval = max(1, int(scan_interval_minutes or 360))
+def save_autopilot_settings(
+    enabled: bool,
+    scan_interval_minutes: int,
+    send_whatsapp: bool,
+    excluded_member_ids: list[str] | None = None,
+) -> dict[str, Any]:
+    interval = max(1, int(scan_interval_minutes or 30))
     set_setting("autopilot.enabled", bool(enabled))
     set_setting("autopilot.scan_interval_minutes", interval)
     set_setting("autopilot.send_whatsapp", bool(send_whatsapp))
+    set_setting("autopilot.excluded_member_ids", list(excluded_member_ids or []))
     return autopilot_settings()
+
+
+def migrate_autopilot_defaults() -> None:
+    marker = get_setting("autopilot.migrated_interval_30", False)
+    if marker:
+        return
+    current = get_setting("autopilot.scan_interval_minutes", None)
+    if current in (None, 15):
+        set_setting("autopilot.scan_interval_minutes", 30)
+    set_setting("autopilot.migrated_interval_30", True)
 
 
 def add_autopilot_run(

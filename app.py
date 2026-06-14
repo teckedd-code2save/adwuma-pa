@@ -659,6 +659,7 @@ def refresh_dashboard():
         gr.Dropdown(value=settings["enabled"]),
         gr.Number(value=settings["scan_interval_minutes"]),
         gr.Dropdown(value=settings["send_whatsapp"]),
+        gr.CheckboxGroup(choices=member_choices(), value=settings["excluded_member_ids"]),
         operations_status_html(),
         status_cards_html(),
         active_requests_html(),
@@ -680,6 +681,7 @@ def page_load_state():
         gr.Dropdown(value=settings["enabled"]),
         gr.Number(value=settings["scan_interval_minutes"]),
         gr.Dropdown(value=settings["send_whatsapp"]),
+        gr.CheckboxGroup(choices=member_choices(), value=settings["excluded_member_ids"]),
         operations_status_html(),
         status_cards_html(),
         active_requests_html(),
@@ -2637,8 +2639,13 @@ def run_silence_scan():
     )
 
 
-def save_autopilot_controls(enabled, scan_interval_minutes, send_whatsapp):
-    settings = db.save_autopilot_settings(as_bool(enabled), scan_interval_minutes, as_bool(send_whatsapp))
+def save_autopilot_controls(enabled, scan_interval_minutes, send_whatsapp, excluded_member_ids):
+    settings = db.save_autopilot_settings(
+        as_bool(enabled),
+        scan_interval_minutes,
+        as_bool(send_whatsapp),
+        excluded_member_ids or [],
+    )
     mode = "on" if settings["enabled"] else "off"
     delivery = "auto-send WhatsApp" if settings["send_whatsapp"] else "queue links only"
     return (
@@ -2647,6 +2654,7 @@ def save_autopilot_controls(enabled, scan_interval_minutes, send_whatsapp):
         gr.Dropdown(value=settings["enabled"]),
         gr.Number(value=settings["scan_interval_minutes"]),
         gr.Dropdown(value=settings["send_whatsapp"]),
+        gr.CheckboxGroup(value=settings["excluded_member_ids"]),
     )
 
 
@@ -3010,8 +3018,13 @@ def build_app():
                         label="WhatsApp delivery",
                         value=settings["send_whatsapp"],
                     )
+                autopilot_exclusions = gr.CheckboxGroup(
+                    choices=member_choices(),
+                    value=settings["excluded_member_ids"],
+                    label="Do not notify",
+                )
                 gr.Markdown(
-                    "Modal cron wakes the system every 15 minutes. This setting controls how often Ani Kɛse actually scans and sends, so skipped cron ticks are expected when the saved interval has not elapsed."
+                    "Modal cron wakes the system every 30 minutes. This setting controls how often Ani Kɛse actually scans and sends, so skipped cron ticks are expected when the saved interval has not elapsed. People checked in “Do not notify” are ignored by autopilot."
                 )
                 with gr.Row():
                     save_autopilot_btn = gr.Button("Save autopilot settings")
@@ -3077,6 +3090,7 @@ def build_app():
                 autopilot_enabled,
                 autopilot_interval,
                 autopilot_send_whatsapp,
+                autopilot_exclusions,
                 operations_status,
                 status_cards,
                 requests,
@@ -3111,6 +3125,7 @@ def build_app():
                 autopilot_enabled,
                 autopilot_interval,
                 autopilot_send_whatsapp,
+                autopilot_exclusions,
                 operations_status,
                 status_cards,
                 requests,
@@ -3140,8 +3155,15 @@ def build_app():
         )
         save_autopilot_btn.click(
             save_autopilot_controls,
-            inputs=[autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
-            outputs=[autopilot_output, autopilot_status, autopilot_enabled, autopilot_interval, autopilot_send_whatsapp],
+            inputs=[autopilot_enabled, autopilot_interval, autopilot_send_whatsapp, autopilot_exclusions],
+            outputs=[
+                autopilot_output,
+                autopilot_status,
+                autopilot_enabled,
+                autopilot_interval,
+                autopilot_send_whatsapp,
+                autopilot_exclusions,
+            ],
         )
         timeline_member.change(person_timeline_html, inputs=[timeline_member], outputs=[member_timeline])
         scan_btn.click(

@@ -33,7 +33,7 @@ def run_autopilot_scan(force: bool = False, actor: str = "Ani Kɛse autopilot") 
         return result
 
     try:
-        actions = scan_silence()
+        actions = scan_silence(settings.get("excluded_member_ids") or [])
         deliveries = send_autopilot_whatsapp() if settings["send_whatsapp"] else ["WhatsApp delivery is set to queue only."]
         reason = scan_reason(actions, deliveries)
         result = {
@@ -100,7 +100,12 @@ def send_autopilot_whatsapp() -> list[str]:
 
 def scan_reason(actions: list[str], deliveries: list[str]) -> str:
     meaningful_actions = [item for item in actions if not item.startswith("No silence escalations")]
-    meaningful_deliveries = [item for item in deliveries if not item.startswith("No pending autopilot WhatsApp messages")]
+    meaningful_deliveries = [
+        item
+        for item in deliveries
+        if not item.startswith("No pending autopilot WhatsApp messages")
+        and not item.startswith("WhatsApp delivery is set to queue only")
+    ]
     if meaningful_deliveries:
         return f"Sent or attempted {len(meaningful_deliveries)} WhatsApp notification(s)."
     if meaningful_actions:
@@ -117,6 +122,7 @@ def compact_last_scan_result(result: dict[str, Any]) -> dict[str, Any]:
             "enabled": result.get("settings", {}).get("enabled"),
             "scan_interval_minutes": result.get("settings", {}).get("scan_interval_minutes"),
             "send_whatsapp": result.get("settings", {}).get("send_whatsapp"),
+            "excluded_member_count": len(result.get("settings", {}).get("excluded_member_ids") or []),
         },
         "actions": result.get("actions") or [],
         "deliveries": result.get("deliveries") or [],

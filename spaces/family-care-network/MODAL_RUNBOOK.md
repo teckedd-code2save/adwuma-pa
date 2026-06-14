@@ -75,6 +75,112 @@ python scripts/modal_smoke.py --base-url "$MODAL_API_BASE_URL" --speak "Me pe se
 Do not run ASR/Qwen/TTS repeatedly during UI iteration. Those endpoints are GPU-backed.
 Use a real short elder-style audio sample for ASR; synthetic or silent audio is not a useful validation.
 
+## ASR Fine-Tune Dataset 1
+
+Primary Twi ASR fine-tuning dataset:
+
+```text
+ghananlpcommunity/twi-speech-text-multispeaker-16k
+config: default
+split: train
+live rows checked: 15,560
+columns: audio, text, duration
+duration range: 0.039s to 10.0s
+mean duration: 2.20s
+```
+
+Use the fine-tune harness only when intentionally testing or training:
+
+```bash
+modal run finetune/finetune_mms_twi.py --max-train-samples 128 --max-eval-samples 32
+```
+
+For a real but still cost-capped run:
+
+```bash
+modal run finetune/finetune_mms_twi.py \
+  --output-repo teckedd/mms-akan-ani-kese-v1 \
+  --max-train-samples 12000 \
+  --max-eval-samples 1200 \
+  --include-youversion \
+  --youversion-mode eval \
+  --max-youversion-samples 200 \
+  --num-train-epochs 3 \
+  --learning-rate 3e-5 \
+  --warmup-ratio 0.1 \
+  --eval-steps 250 \
+  --save-steps 250 \
+  --early-stopping-patience 2 \
+  --min-wer-delta 0.005 \
+  --push-to-hub
+```
+
+Prerequisite secret:
+
+```bash
+modal secret create huggingface-token HF_TOKEN=<hf-write-token>
+```
+
+Cost rules:
+
+- Run the 128/32 smoke job first.
+- Stop if preprocessing, labels, or WER evaluation fails.
+- Do not run the full 12k/1.2k job until the smoke job finishes cleanly.
+- Do not push a trained adapter unless primary Twi WER beats the base MMS adapter gate.
+- Keep YouVersion as a separate robustness eval unless a later experiment proves it helps training.
+- Stop the fine-tune app after any run:
+
+```bash
+modal app stop ani-kese-finetune --yes
+```
+
+Supplemental Akan ASR dataset:
+
+```text
+AfriSpeech/youversion-african-speech
+config: Akan_aka
+split: train
+live rows checked: 2,180
+columns: id, language, text, duration, source_file, audio
+duration range: 0.1s to 29.9s
+mean duration: 6.05s
+domain: Bible/YouVersion read speech
+```
+
+Use it carefully. It is valuable Akan audio, but its scripture domain is not the same as family check-ins. Prefer it first as a held-out robustness slice:
+
+```bash
+modal run finetune/finetune_mms_twi.py \
+  --include-youversion \
+  --youversion-mode eval \
+  --max-youversion-samples 200 \
+  --max-train-samples 128 \
+  --max-eval-samples 32
+```
+
+Only mix it into training after the eval-only smoke path works:
+
+```bash
+modal run finetune/finetune_mms_twi.py \
+  --include-youversion \
+  --youversion-mode train \
+  --max-youversion-samples 400 \
+  --max-train-samples 12000 \
+  --max-eval-samples 1200 \
+  --num-train-epochs 3 \
+  --push-to-hub
+```
+
+Small things that matter for ASR performance:
+
+- Keep a fixed held-out eval set; do not judge by training WER.
+- Normalize whitespace and punctuation consistently before WER.
+- Filter very short clips and very long clips separately; they fail for different reasons.
+- Keep domain mix controlled. Family-care speech should dominate; scripture/read speech should not.
+- Run a tiny sample job before every full run.
+- Compare against the current app ASR models with the same audio and same normalization.
+- Keep low-confidence ASR as `needs_review`; do not force bad transcripts into concern scoring.
+
 ## Cron
 
 Do not deploy cron during development. Use the dashboard button "Run autopilot once".
@@ -86,7 +192,7 @@ hf spaces variables set build-small-hackathon/family-care-network ADWUMA_PA_AUTO
 modal secret create adwuma-pa-autopilot ADWUMA_PA_SPACE_URL=https://build-small-hackathon-family-care-network.hf.space ADWUMA_PA_AUTOPILOT_SECRET=<shared-random-secret>
 ```
 
-The Modal cron wakes every 15 minutes, but the Space decides whether a scan is due using the dashboard scan interval.
+The Modal cron wakes every 30 minutes, but the Space decides whether a scan is due using the dashboard scan interval.
 
 ```bash
 modal deploy modal_backend/cron.py
