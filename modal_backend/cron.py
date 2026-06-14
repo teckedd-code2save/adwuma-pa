@@ -38,4 +38,6 @@ def autopilot_scan() -> dict:
         timeout=60,
     )
     response.raise_for_status()
-    return response.json()
+    result = response.json()
+    print(result)
+    return result

@@ -149,6 +149,19 @@ CREATE TABLE IF NOT EXISTS outbound_messages (
   created_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS autopilot_runs (
+  id TEXT PRIMARY KEY,
+  started_at TEXT NOT NULL,
+  completed_at TEXT,
+  actor TEXT,
+  status TEXT NOT NULL,
+  reason TEXT,
+  actions_json TEXT DEFAULT '[]',
+  deliveries_json TEXT DEFAULT '[]',
+  settings_json TEXT DEFAULT '{}',
+  error TEXT
+);
+
 CREATE TABLE IF NOT EXISTS app_settings (
   key TEXT PRIMARY KEY,
   value TEXT,

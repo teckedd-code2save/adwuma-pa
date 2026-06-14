@@ -12,34 +12,53 @@ def run_autopilot_scan(force: bool = False, actor: str = "Ani Kɛse autopilot") 
     db.init_db()
     settings = db.autopilot_settings()
     if not settings["enabled"] and not force:
-        return {
+        result = {
             "status": "skipped",
             "reason": "Autopilot is off.",
             "settings": settings,
             "actions": [],
             "deliveries": [],
         }
+        db.add_autopilot_run(actor, result["status"], result["reason"], settings=settings)
+        return result
     if not force and not scan_due(settings):
-        return {
+        result = {
             "status": "skipped",
             "reason": "Autopilot scan interval has not elapsed.",
             "settings": settings,
             "actions": [],
             "deliveries": [],
         }
+        db.add_autopilot_run(actor, result["status"], result["reason"], settings=settings)
+        return result
 
-    actions = scan_silence()
-    deliveries = send_autopilot_whatsapp() if settings["send_whatsapp"] else []
-    result = {
-        "status": "complete",
-        "actor": actor,
-        "settings": db.autopilot_settings(),
-        "actions": actions,
-        "deliveries": deliveries,
-    }
-    db.set_setting("autopilot.last_scan_at", db.now_iso())
-    db.set_setting("autopilot.last_scan_result", result)
-    return result
+    try:
+        actions = scan_silence()
+        deliveries = send_autopilot_whatsapp() if settings["send_whatsapp"] else ["WhatsApp delivery is set to queue only."]
+        reason = scan_reason(actions, deliveries)
+        result = {
+            "status": "complete",
+            "actor": actor,
+            "reason": reason,
+            "settings": db.autopilot_settings(),
+            "actions": actions,
+            "deliveries": deliveries,
+        }
+        db.set_setting("autopilot.last_scan_at", db.now_iso())
+        db.set_setting("autopilot.last_scan_result", compact_last_scan_result(result))
+        db.add_autopilot_run(actor, result["status"], reason, actions, deliveries, result["settings"])
+        return result
+    except Exception as exc:
+        result = {
+            "status": "failed",
+            "reason": "Autopilot scan failed.",
+            "settings": settings,
+            "actions": [],
+            "deliveries": [],
+            "error": str(exc),
+        }
+        db.add_autopilot_run(actor, result["status"], result["reason"], settings=settings, error=str(exc))
+        raise
 
 
 def scan_due(settings: dict[str, Any]) -> bool:
@@ -79,6 +98,31 @@ def send_autopilot_whatsapp() -> list[str]:
     return deliveries
 
 
+def scan_reason(actions: list[str], deliveries: list[str]) -> str:
+    meaningful_actions = [item for item in actions if not item.startswith("No silence escalations")]
+    meaningful_deliveries = [item for item in deliveries if not item.startswith("No pending autopilot WhatsApp messages")]
+    if meaningful_deliveries:
+        return f"Sent or attempted {len(meaningful_deliveries)} WhatsApp notification(s)."
+    if meaningful_actions:
+        return f"Created or updated {len(meaningful_actions)} care action(s), but no WhatsApp was sent."
+    return "No due family members; no WhatsApp sent."
+
+
+def compact_last_scan_result(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "status": result.get("status"),
+        "actor": result.get("actor"),
+        "reason": result.get("reason"),
+        "settings": {
+            "enabled": result.get("settings", {}).get("enabled"),
+            "scan_interval_minutes": result.get("settings", {}).get("scan_interval_minutes"),
+            "send_whatsapp": result.get("settings", {}).get("send_whatsapp"),
+        },
+        "actions": result.get("actions") or [],
+        "deliveries": result.get("deliveries") or [],
+    }
+
+
 def autopilot_summary_html() -> str:
     settings = db.autopilot_settings()
     enabled = "On" if settings["enabled"] else "Off"
@@ -86,7 +130,7 @@ def autopilot_summary_html() -> str:
     last = settings.get("last_scan_at") or "Never"
     result = settings.get("last_scan_result") or {}
     actions = result.get("actions") if isinstance(result, dict) else []
-    action_count = len(actions or [])
+    action_count = len([item for item in actions or [] if not str(item).startswith("No silence escalations")])
     return f"""
 <div class="ap-autopilot">
   <div><strong>Status:</strong> {enabled}</div>

@@ -42,6 +42,7 @@ REQUEST_HEADERS = ["Request", "Token", "Member", "Type", "Reason", "Priority", "
 NUDGE_HEADERS = ["Sent", "Contact", "Request", "Responded", "Check-in"]
 AFFILIATION_HEADERS = ["Subject", "Related", "Relationship", "Care role", "Priority", "Coordinator", "Notes"]
 OUTBOUND_HEADERS = ["Created", "Recipient", "Channel", "Status", "SID", "Error", "Body"]
+AUTOPILOT_RUN_HEADERS = ["Started", "Actor", "Status", "Reason", "Actions", "Deliveries", "Details"]
 ASR_MODEL_CHOICES = [
     ("MMS-1B-all (Akan)", "primary"),
     ("Ani Kɛse Akan Whisper fine-tune", "fine_tuned"),
@@ -698,6 +699,7 @@ def page_load_state():
         gr.Dropdown(choices=pending_request_choices()),
         gr.Dropdown(choices=recent_checkin_choices()),
         person_timeline_html(None),
+        autopilot_run_table_value(),
     )
 
 
@@ -725,6 +727,10 @@ def outbound_table_value():
     return table_value(db.outbound_rows(), OUTBOUND_HEADERS)
 
 
+def autopilot_run_table_value():
+    return table_value(db.autopilot_run_rows(), AUTOPILOT_RUN_HEADERS)
+
+
 def storage_status_html():
     status = db.storage_status()
     persistence = "persistent /data storage detected" if status["persistent_storage"] else "ephemeral app filesystem"
@@ -737,7 +743,10 @@ def storage_status_html():
 <div class="ap-storage">
   <strong>Storage:</strong> {html.escape(persistence)}<br>
   <strong>Members saved:</strong> {status['member_count']}<br>
+  <strong>Affiliations:</strong> {status['affiliation_count']}<br>
   <strong>Check-ins queued:</strong> {status['request_count']}<br>
+  <strong>WhatsApp attempts:</strong> {status['outbound_count']}<br>
+  <strong>Autopilot runs:</strong> {status['autopilot_run_count']}<br>
   <strong>Database:</strong> <code>{html.escape(status['db_path'])}</code><br>
   {html.escape(warning)}
 </div>
@@ -1919,6 +1928,7 @@ def save_member_edits(member_id, name, phone, whatsapp, city, region, language, 
         choices,
         choices,
         choices,
+        autopilot_run_table_value(),
     )
 
 
@@ -2560,6 +2570,7 @@ def run_silence_scan():
         gr.Dropdown(choices=alert_choices()),
         gr.Dropdown(choices=pending_request_choices()),
         outbound_table_value(),
+        autopilot_run_table_value(),
     )
 
 
@@ -2977,6 +2988,13 @@ def build_app():
                 gr.HTML('<div class="ap-section-title">Startup and shutdown</div>')
                 gr.HTML(system_runbook_html())
                 with gr.Accordion("Delivery log and data controls", open=False):
+                    autopilot_runs = gr.Dataframe(
+                        headers=AUTOPILOT_RUN_HEADERS,
+                        value=autopilot_run_table_value(),
+                        label="Autopilot run log",
+                        interactive=False,
+                        wrap=True,
+                    )
                     outbound_messages = gr.Dataframe(headers=OUTBOUND_HEADERS, value=outbound_table_value(), label="Recent WhatsApp attempts", interactive=False, wrap=True)
                     gr.Markdown("Production data starts empty. This only clears records; it never loads dummy data.")
                     clear_data_btn = gr.Button("Clear all data", variant="stop")
@@ -3013,6 +3031,7 @@ def build_app():
                 send_request_picker,
                 translation_checkin,
                 member_timeline,
+                autopilot_runs,
             ],
         )
         demo.load(
@@ -3046,6 +3065,7 @@ def build_app():
                 send_request_picker,
                 translation_checkin,
                 member_timeline,
+                autopilot_runs,
             ],
         )
         save_autopilot_btn.click(
@@ -3069,6 +3089,7 @@ def build_app():
                 alert_picker,
                 send_request_picker,
                 outbound_messages,
+                autopilot_runs,
             ],
         )
         load_request.click(
@@ -3149,6 +3170,7 @@ def build_app():
                 affiliation_subject,
                 affiliation_related,
                 edit_member,
+                autopilot_runs,
             ],
         )
         affiliation_btn.click(
@@ -3188,6 +3210,7 @@ def build_app():
                 affiliation_subject,
                 affiliation_related,
                 edit_member,
+                autopilot_runs,
             ],
         )
         clear_data_btn.click(

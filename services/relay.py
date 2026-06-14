@@ -133,7 +133,7 @@ def route_contact(elder_id: str) -> dict | None:
             WHEN 'primary_coordinator' THEN 5
             ELSE 9
           END,
-          a.priority ASC,
+          a.priority DESC,
           c.is_coordinator DESC,
           c.name ASC
         LIMIT 1

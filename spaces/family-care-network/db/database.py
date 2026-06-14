@@ -96,6 +96,22 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
         )
         """
     )
+    conn.execute(
+        """
+        CREATE TABLE IF NOT EXISTS autopilot_runs (
+          id TEXT PRIMARY KEY,
+          started_at TEXT NOT NULL,
+          completed_at TEXT,
+          actor TEXT,
+          status TEXT NOT NULL,
+          reason TEXT,
+          actions_json TEXT DEFAULT '[]',
+          deliveries_json TEXT DEFAULT '[]',
+          settings_json TEXT DEFAULT '{}',
+          error TEXT
+        )
+        """
+    )
 
 
 def ensure_columns(conn: sqlite3.Connection, table: str, columns: dict[str, str]) -> None:
@@ -162,6 +178,7 @@ def clear_all_data() -> None:
         for table in [
             "inbound_messages",
             "outbound_messages",
+            "autopilot_runs",
             "model_runs",
             "nudges",
             "calls",
@@ -395,8 +412,10 @@ def update_escalation(member_id: str, reminder_minutes: int, amber_minutes: int,
 def storage_status() -> dict[str, Any]:
     with connect() as conn:
         member_count = conn.execute("SELECT COUNT(*) AS n FROM members").fetchone()["n"]
+        affiliation_count = conn.execute("SELECT COUNT(*) AS n FROM member_affiliations").fetchone()["n"]
         request_count = conn.execute("SELECT COUNT(*) AS n FROM checkup_requests").fetchone()["n"]
         outbound_count = conn.execute("SELECT COUNT(*) AS n FROM outbound_messages").fetchone()["n"]
+        autopilot_run_count = conn.execute("SELECT COUNT(*) AS n FROM autopilot_runs").fetchone()["n"]
     return {
         "db_path": str(DB_PATH),
         "data_dir": str(DATA_DIR),
@@ -404,8 +423,10 @@ def storage_status() -> dict[str, Any]:
         "db_exists": DB_PATH.exists(),
         "persistent_storage": DATA_DIR == Path("/data"),
         "member_count": member_count,
+        "affiliation_count": affiliation_count,
         "request_count": request_count,
         "outbound_count": outbound_count,
+        "autopilot_run_count": autopilot_run_count,
     }
 
 
@@ -448,6 +469,102 @@ def save_autopilot_settings(enabled: bool, scan_interval_minutes: int, send_what
     set_setting("autopilot.scan_interval_minutes", interval)
     set_setting("autopilot.send_whatsapp", bool(send_whatsapp))
     return autopilot_settings()
+
+
+def add_autopilot_run(
+    actor: str,
+    status: str,
+    reason: str = "",
+    actions: list[Any] | None = None,
+    deliveries: list[Any] | None = None,
+    settings: dict[str, Any] | None = None,
+    error: str = "",
+    started_at: str | None = None,
+) -> str:
+    run_id = new_id("autorun")
+    now = now_iso()
+    with connect() as conn:
+        conn.execute(
+            """
+            INSERT INTO autopilot_runs
+            (id, started_at, completed_at, actor, status, reason, actions_json, deliveries_json, settings_json, error)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                run_id,
+                started_at or now,
+                now,
+                actor,
+                status,
+                reason,
+                json.dumps(actions or []),
+                json.dumps(deliveries or []),
+                json.dumps(settings or {}),
+                error,
+            ),
+        )
+    return run_id
+
+
+def autopilot_run_rows(limit: int = 20) -> list[dict[str, Any]]:
+    rows_ = rows(
+        """
+        SELECT started_at, completed_at, actor, status, reason, actions_json, deliveries_json, error
+        FROM autopilot_runs
+        ORDER BY started_at DESC
+        LIMIT ?
+        """,
+        (limit,),
+    )
+    output = []
+    for row in rows_:
+        actions = _decode_json_list(row.get("actions_json"))
+        deliveries = _decode_json_list(row.get("deliveries_json"))
+        output.append(
+            {
+                "Started": row.get("started_at") or "",
+                "Actor": row.get("actor") or "",
+                "Status": row.get("status") or "",
+                "Reason": row.get("reason") or row.get("error") or "",
+                "Actions": len([item for item in actions if not _is_noop_action(item)]),
+                "Deliveries": len([item for item in deliveries if not _is_noop_delivery(item)]),
+                "Details": _compact_run_details(actions, deliveries, row.get("error") or ""),
+            }
+        )
+    return output
+
+
+def _decode_json_list(value: Any) -> list[Any]:
+    try:
+        decoded = json.loads(value or "[]")
+    except Exception:
+        return []
+    return decoded if isinstance(decoded, list) else []
+
+
+def _is_noop_action(value: Any) -> bool:
+    return str(value).startswith("No silence escalations")
+
+
+def _is_noop_delivery(value: Any) -> bool:
+    return str(value).startswith("No pending autopilot WhatsApp messages")
+
+
+def _compact_run_details(actions: list[Any], deliveries: list[Any], error: str) -> str:
+    parts = []
+    if error:
+        parts.append(f"Error: {error}")
+    meaningful_actions = [str(item) for item in actions if not _is_noop_action(item)]
+    meaningful_deliveries = [str(item) for item in deliveries if not _is_noop_delivery(item)]
+    if meaningful_actions:
+        parts.append("Actions: " + " | ".join(meaningful_actions[:3]))
+    elif actions:
+        parts.append(str(actions[0]))
+    if meaningful_deliveries:
+        parts.append("Delivery: " + " | ".join(meaningful_deliveries[:3]))
+    elif deliveries:
+        parts.append(str(deliveries[0]))
+    return "\n".join(parts)
 
 
 def create_alert(member_id: str, alert_type: str, notes: str) -> str:
