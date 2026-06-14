@@ -907,7 +907,7 @@ def family_pulse_html(limit=10):
     )
     requests = db.rows(
         """
-        SELECT r.member_id, r.token, r.request_type, r.reason_code, r.reason_detail, r.priority, r.status,
+        SELECT r.id, r.member_id, r.token, r.request_type, r.reason_code, r.reason_detail, r.priority, r.status,
                r.created_at, m.name, m.location_city, COALESCE(m.family_role, 'family') AS family_role,
                c.name AS contact_name, c.location_city AS contact_city
         FROM checkup_requests r
@@ -974,6 +974,7 @@ def family_pulse_html(limit=10):
                     "detail": detail,
                     "token": row["token"],
                     "priority": row["priority"] or "routine",
+                    "id": row.get("id"),
                 }
             )
         item["events"].append(
@@ -983,6 +984,7 @@ def family_pulse_html(limit=10):
                 "title": "Waiting for " + responder,
                 "body": detail,
                 "meta": f"{'Relative update' if is_report else 'Family check-in'} · {human_priority_label(row['priority'])} · {row['status']}",
+                "request_id": row.get("id"),
             }
         )
         request_rank = {"red": 0, "amber": 1, "routine": 3}.get(row["priority"] or "routine", 3)
@@ -999,21 +1001,51 @@ def family_pulse_html(limit=10):
 
     member_ids = list(board.keys())
     placeholders = ",".join("?" for _ in member_ids)
-    latest = db.rows(
+    checkins = db.rows(
         f"""
         SELECT c.member_id, c.submitted_at, c.analysis_status, c.concern_level, c.source,
-               c.summary, c.translation, c.transcript, c.raw_input, c.processing_error
+               c.summary, c.translation, c.transcript, c.raw_input, c.processing_error,
+               c.request_id, r.request_type, r.reason_code, n.contact_id, contact.name AS contact_name
         FROM checkins c
-        JOIN (
-          SELECT member_id, MAX(submitted_at) AS submitted_at
-          FROM checkins
-          WHERE member_id IN ({placeholders})
-          GROUP BY member_id
-        ) latest ON latest.member_id = c.member_id AND latest.submitted_at = c.submitted_at
+        LEFT JOIN checkup_requests r ON r.id = c.request_id
+        LEFT JOIN nudges n ON n.id = r.related_nudge_id
+        LEFT JOIN members contact ON contact.id = n.contact_id
+        WHERE c.member_id IN ({placeholders})
+        ORDER BY c.submitted_at DESC
+        LIMIT 50
         """,
         tuple(member_ids),
     )
-    latest_by_member = {row["member_id"]: row for row in latest}
+    latest_by_member = {}
+    for row in checkins:
+        latest_by_member.setdefault(row["member_id"], row)
+        item = board.get(row["member_id"])
+        if not item:
+            continue
+        concern = "" if row["concern_level"] is None else f" · concern {row['concern_level']}/10"
+        summary = row.get("summary") or row.get("processing_error") or "Reply saved for review."
+        transcript = row.get("translation") or row.get("transcript") or row.get("raw_input") or ""
+        reply_body = summary
+        if transcript:
+            reply_body = f"{summary} Evidence: {transcript}"
+        request_type = row.get("request_type") or "direct"
+        if request_type == "field_report" and row.get("contact_name"):
+            title = f"{row['contact_name']} replied to relative update"
+        elif request_type == "elder_checkin":
+            title = f"{item['name']} replied to family check-in"
+        else:
+            title = f"{item['name']} replied"
+        reason = friendly_reason(row.get("reason_code")) if row.get("reason_code") else "Direct update"
+        item["events"].append(
+            {
+                "at": row["submitted_at"],
+                "side": "responder",
+                "title": title,
+                "body": reply_body,
+                "meta": f"{reason} · {row['analysis_status']}{concern}",
+                "request_id": row.get("request_id"),
+            }
+        )
 
     cards = []
     for member_id, item in sorted(board.items(), key=lambda pair: (severity[pair[0]], item_sort_name(pair[1]))):
@@ -1021,22 +1053,6 @@ def family_pulse_html(limit=10):
         card_class = case_class(primary_type)
         status_label = item["alerts"][0]["label"] if item["alerts"] else "Waiting for reply"
         evidence = latest_by_member.get(member_id)
-        if evidence:
-            concern = "" if evidence["concern_level"] is None else f" · concern {evidence['concern_level']}/10"
-            summary = evidence.get("summary") or evidence.get("processing_error") or "Latest reply saved for review."
-            transcript = evidence.get("translation") or evidence.get("transcript") or evidence.get("raw_input") or ""
-            reply_body = summary
-            if transcript:
-                reply_body = f"{summary} Evidence: {transcript}"
-            item["events"].append(
-                {
-                    "at": evidence["submitted_at"],
-                    "side": "responder",
-                    "title": f"{item['name']} replied",
-                    "body": reply_body,
-                    "meta": f"{evidence['analysis_status']}{concern}",
-                }
-            )
         next_action = alert_next_action(item["alerts"][0]["type"]) if item["alerts"] else "Wait for the expected responder, or resend the link if the family is blocked."
         item["events"].append(
             {
@@ -1077,10 +1093,19 @@ def family_pulse_html(limit=10):
 
 def care_thread_html(events):
     def event_key(event):
-        return event.get("at") or "9999"
+        value = event.get("at")
+        side_rank = {"responder": 2, "system": 1, "action": 0}.get(event.get("side") or "system", 1)
+        if not value:
+            return (datetime.min, side_rank)
+        try:
+            return (datetime.fromisoformat(str(value)), side_rank)
+        except Exception:
+            return (datetime.min, side_rank)
 
     bubbles = []
-    for event in sorted(events, key=event_key):
+    dated = [event for event in events if event.get("at")]
+    undated = [event for event in events if not event.get("at")]
+    for event in sorted(dated, key=event_key, reverse=True) + undated:
         side = event.get("side") or "system"
         css = {
             "system": "ap-bubble-system",
