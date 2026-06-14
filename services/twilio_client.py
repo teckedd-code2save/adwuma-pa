@@ -128,17 +128,33 @@ def send_request_link(request_id: str) -> TwilioResult:
 
 
 def request_message_body(request: dict) -> str:
-    reason = (request.get("reason_code") or "check-in").replace("_", " ")
+    link = checkin_url(request["token"])
+    elder = request["elder_name"]
+    recipient = request.get("recipient_name") or "there"
+    reason_code = request.get("reason_code") or "check-in"
     if request.get("request_type") == "field_report":
+        if "red" in reason_code:
+            return (
+                f"Hi {recipient}, this needs urgent follow-up: Ani Kɛse has not heard from {elder} "
+                f"past their urgent window. Please confirm they are okay and send a short family update: {link}"
+            )
         return (
-            f"Ani Kɛse needs your help checking on {request['elder_name']}. "
-            f"Reason: {reason}. "
-            f"Please send a short family report here: {checkin_url(request['token'])}"
+            f"Hi {recipient}, Ani Kɛse has not heard from {elder} for a while. "
+            f"Could you check on them and send a short family update? {link}"
+        )
+    if "red" in reason_code:
+        return (
+            f"Hi {elder}, Ani Kɛse is checking in because your family has not heard from you "
+            f"past your urgent follow-up window. Please send a short update: {link}"
+        )
+    if "amber" in reason_code:
+        return (
+            f"Hi {elder}, Ani Kɛse is checking in because your family has not heard from you for a while. "
+            f"Please send a short update: {link}"
         )
     return (
-        f"Ani Kɛse check-in for {request['elder_name']}. "
-        f"Reason: {reason}. "
-        f"Please respond here: {checkin_url(request['token'])}"
+        f"Hi {elder}, Ani Kɛse is checking in because we have not heard from you recently. "
+        f"Please send a short update: {link}"
     )
 
 

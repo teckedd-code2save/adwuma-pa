@@ -15,6 +15,9 @@ CREATE TABLE IF NOT EXISTS members (
   reminder_minutes INTEGER DEFAULT 10080,
   escalation_minutes_amber INTEGER DEFAULT 14400,
   escalation_minutes_red INTEGER DEFAULT 20160,
+  routine_messages_per_day INTEGER DEFAULT 1,
+  amber_messages_per_day INTEGER DEFAULT 1,
+  red_messages_per_day INTEGER DEFAULT 2,
   call_enabled INTEGER DEFAULT 1,
   created_at TEXT NOT NULL
 );

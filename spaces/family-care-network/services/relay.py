@@ -196,6 +196,7 @@ def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
     )
     for member in members:
         if member["id"] in excluded:
+            actions.append(f"Excluded from autopilot: {member['name']}.")
             continue
         silent = minutes_since(member.get("last_checkin_at"))
         amber = member.get("escalation_minutes_amber") or 14400
@@ -205,82 +206,95 @@ def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
         if silent >= red:
             silent_text = human_duration(silent)
             red_text = human_duration(red)
+            elder_detail = f"We have not heard from {member['name']} for {silent_text}. This is past their urgent follow-up window of {red_text}."
             alert_id = db.create_alert(
                 member["id"],
                 "red_silence",
-                f"We have not heard from {member['name']} for {silent_text}. This is past their urgent follow-up window of {red_text}.",
+                elder_detail,
             )
+            existing = db.open_checkup_request(member["id"], "red_silence", "elder_checkin")
             request_id = db.create_checkup_request(
                 member["id"],
                 "red_silence",
-                f"We have not heard from {member['name']} for {silent_text}, which is beyond the urgent follow-up window of {red_text}.",
+                elder_detail,
                 channel="whatsapp",
                 priority="red",
                 related_alert_id=alert_id,
             )
             if contact:
-                nudge_id = db.add_nudge(member["id"], contact["id"])
-                db.create_checkup_request(
-                    member["id"],
-                    "first_party_red_silence",
-                    f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after an urgent missed check-in.",
-                    request_type="field_report",
-                    channel="whatsapp",
-                    requester="Ani Kɛse autopilot",
-                    priority="red",
-                    related_alert_id=alert_id,
-                    related_nudge_id=nudge_id,
-                )
+                field_existing = db.open_checkup_request(member["id"], "first_party_red_silence", "field_report")
+                if not field_existing:
+                    nudge_id = db.add_nudge(member["id"], contact["id"])
+                    db.create_checkup_request(
+                        member["id"],
+                        "first_party_red_silence",
+                        f"{member['name']} needs urgent follow-up. Please check on them and send a short family update.",
+                        request_type="field_report",
+                        channel="whatsapp",
+                        requester="Ani Kɛse autopilot",
+                        priority="red",
+                        related_alert_id=alert_id,
+                        related_nudge_id=nudge_id,
+                    )
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
-            actions.append(f"Urgent follow-up for {member['name']}: case {alert_id}. Check-in request queued.{routed}")
+            state = "Existing open urgent request reused" if existing else "Urgent check-in request queued"
+            actions.append(f"{state} for {member['name']}: case {alert_id}.{routed}")
         elif silent >= amber:
             silent_text = human_duration(silent)
             amber_text = human_duration(amber)
+            elder_detail = f"We have not heard from {member['name']} for {silent_text}. This is past their check-soon window of {amber_text}."
             alert_id = db.create_alert(
                 member["id"],
                 "amber_silence",
-                f"We have not heard from {member['name']} for {silent_text}. This is past their needs-attention window of {amber_text}.",
+                elder_detail,
             )
+            existing = db.open_checkup_request(member["id"], "amber_silence", "elder_checkin")
             request_id = db.create_checkup_request(
                 member["id"],
                 "amber_silence",
-                f"We have not heard from {member['name']} for {silent_text}, which is beyond the needs-attention window of {amber_text}.",
+                elder_detail,
                 channel="whatsapp",
                 priority="amber",
                 related_alert_id=alert_id,
             )
             if contact:
-                nudge_id = db.add_nudge(member["id"], contact["id"])
-                db.create_checkup_request(
-                    member["id"],
-                    "first_party_amber_silence",
-                    f"Ask {contact['name']} ({contact.get('care_role', 'family')}) to check on {member['name']} after a missed check-in.",
-                    request_type="field_report",
-                    channel="whatsapp",
-                    requester="Ani Kɛse autopilot",
-                    priority="amber",
-                    related_alert_id=alert_id,
-                    related_nudge_id=nudge_id,
-                )
+                field_existing = db.open_checkup_request(member["id"], "first_party_amber_silence", "field_report")
+                if not field_existing:
+                    nudge_id = db.add_nudge(member["id"], contact["id"])
+                    db.create_checkup_request(
+                        member["id"],
+                        "first_party_amber_silence",
+                        f"We have not heard from {member['name']} for a while. Please check on them and send a short family update.",
+                        request_type="field_report",
+                        channel="whatsapp",
+                        requester="Ani Kɛse autopilot",
+                        priority="amber",
+                        related_alert_id=alert_id,
+                        related_nudge_id=nudge_id,
+                    )
             routed = f" Routed to {contact['name']}." if contact else " No care contact assigned."
-            actions.append(f"Needs attention for {member['name']}: case {alert_id}. Check-in request queued.{routed}")
+            state = "Existing open check-soon request reused" if existing else "Check-soon request queued"
+            actions.append(f"{state} for {member['name']}: case {alert_id}.{routed}")
         elif silent >= reminder:
             silent_text = human_duration(silent)
             reminder_text = human_duration(reminder)
+            elder_detail = f"We have not heard from {member['name']} for {silent_text}. Their routine check-in window is {reminder_text}."
             alert_id = db.create_alert(
                 member["id"],
                 "reminder_silence",
-                f"We have not heard from {member['name']} for {silent_text}. Their check-soon window is {reminder_text}.",
+                elder_detail,
             )
+            existing = db.open_checkup_request(member["id"], "reminder_silence", "elder_checkin")
             request_id = db.create_checkup_request(
                 member["id"],
                 "reminder_silence",
-                f"We have not heard from {member['name']} for {silent_text}, so Ani Kɛse is sending a reminder.",
+                elder_detail,
                 channel="whatsapp",
                 priority="routine",
                 related_alert_id=alert_id,
             )
-            actions.append(f"Check soon for {member['name']}: case {alert_id}. Check-in request queued.")
+            state = "Existing open routine request reused" if existing else "Routine check-in request queued"
+            actions.append(f"{state} for {member['name']}: case {alert_id}.")
     if not actions:
         actions.append("No silence escalations. All active family members are inside their configured thresholds.")
     return actions

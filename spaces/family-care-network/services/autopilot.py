@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from db import database as db
@@ -68,14 +68,15 @@ def scan_due(settings: dict[str, Any]) -> bool:
     then = datetime.fromisoformat(last_scan_at)
     if then.tzinfo is None:
         then = then.replace(tzinfo=timezone.utc)
-    elapsed_minutes = int((datetime.now(timezone.utc) - then).total_seconds() / 60)
-    return elapsed_minutes >= int(settings.get("scan_interval_minutes") or 360)
+    elapsed_seconds = (datetime.now(timezone.utc) - then).total_seconds()
+    interval_seconds = int(settings.get("scan_interval_minutes") or 360) * 60
+    return elapsed_seconds >= max(0, interval_seconds - 90)
 
 
 def send_autopilot_whatsapp() -> list[str]:
     pending = db.rows(
         """
-        SELECT id
+        SELECT id, member_id, priority
         FROM checkup_requests
         WHERE requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
           AND channel = 'whatsapp'
@@ -87,7 +88,13 @@ def send_autopilot_whatsapp() -> list[str]:
         """
     )
     deliveries = []
+    since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
     for row in pending:
+        cap = db.member_frequency_cap(row["member_id"], row["priority"] or "routine")
+        sent = db.outbound_count_for_member_priority(row["member_id"], row["priority"] or "routine", since)
+        if sent >= cap:
+            deliveries.append(f"{row['id']}: Frequency cap reached; no WhatsApp sent.")
+            continue
         result = twilio_client.send_request_link(row["id"])
         if result.sid:
             deliveries.append(f"{row['id']}: {result.message} SID: {result.sid}")
@@ -99,16 +106,28 @@ def send_autopilot_whatsapp() -> list[str]:
 
 
 def scan_reason(actions: list[str], deliveries: list[str]) -> str:
-    meaningful_actions = [item for item in actions if not item.startswith("No silence escalations")]
+    excluded_actions = [item for item in actions if item.startswith("Excluded from autopilot")]
+    meaningful_actions = [
+        item
+        for item in actions
+        if not item.startswith("No silence escalations") and not item.startswith("Excluded from autopilot")
+    ]
     meaningful_deliveries = [
         item
         for item in deliveries
         if not item.startswith("No pending autopilot WhatsApp messages")
         and not item.startswith("WhatsApp delivery is set to queue only")
+        and "Frequency cap reached" not in item
     ]
     if meaningful_deliveries:
         return f"Sent or attempted {len(meaningful_deliveries)} WhatsApp notification(s)."
+    if any("Frequency cap reached" in item for item in deliveries):
+        return "Frequency cap reached; no WhatsApp sent."
+    if excluded_actions and not meaningful_actions:
+        return "Excluded from autopilot."
     if meaningful_actions:
+        if all(item.startswith("Existing open") for item in meaningful_actions):
+            return "Existing open request reused; no new WhatsApp sent."
         return f"Created or updated {len(meaningful_actions)} care action(s), but no WhatsApp was sent."
     return "No due family members; no WhatsApp sent."
 

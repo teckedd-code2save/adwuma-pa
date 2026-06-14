@@ -6,7 +6,7 @@ import io
 import json
 import os
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import parse_qs
 
 from fastapi import BackgroundTasks, FastAPI, Request, Response
@@ -508,12 +508,19 @@ label:has(input[type="radio"]:checked) {
 /* Inline field labels — crisp, not faint */
 .ap-care-line strong { color: var(--ap-ink); font-weight: 700; }
 .ap-care-thread { display: grid; gap: 8px; margin-top: 12px; }
+.ap-request-pair { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: 12px; display: grid; gap: 8px; padding: 10px; }
+.ap-request-pair.ap-pair-waiting { background: #f8fafc; }
+.ap-request-pair.ap-pair-red.ap-pair-waiting { background: #fff7f7; border-color: #fecaca; }
+.ap-request-pair.ap-pair-amber.ap-pair-waiting { background: #fffaf0; border-color: #fde68a; }
+.ap-request-pair.ap-pair-answered:not(.ap-pair-red) { opacity: .86; }
 .ap-bubble { border: 1px solid var(--ap-line); border-radius: 12px; color: var(--ap-ink); font-size: 13px; line-height: 1.45; max-width: 88%; padding: 9px 11px; }
 .ap-bubble strong { color: var(--ap-ink); display: block; font-size: 12px; margin-bottom: 3px; }
 .ap-bubble span { color: var(--ap-muted); display: block; font-size: 11px; margin-top: 5px; }
 .ap-bubble-system { background: var(--ap-surface-soft); justify-self: start; border-bottom-left-radius: 4px; }
 .ap-bubble-responder { background: var(--ap-accent-soft); border-color: rgba(5, 150, 105, .25); justify-self: end; border-bottom-right-radius: 4px; }
 .ap-bubble-action { background: #fff7ed; border-color: #fed7aa; justify-self: start; }
+.ap-request-actions { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
+.ap-link-btn { background: var(--ap-surface) !important; border: 1px solid var(--ap-line-strong) !important; border-radius: 8px; color: var(--ap-ink) !important; cursor: pointer; display: inline-flex; font-size: 12px; font-weight: 700; line-height: 1; padding: 7px 9px; text-decoration: none !important; }
 
 /* ------------------------------ Pulse rows ------------------------------ */
 .ap-pulse-row {
@@ -915,6 +922,10 @@ def family_pulse_html(limit=10):
         LEFT JOIN nudges n ON n.id = r.related_nudge_id
         LEFT JOIN members c ON c.id = n.contact_id
         WHERE r.status IN ('pending', 'sent', 'processing', 'needs_review')
+           OR EXISTS (
+             SELECT 1 FROM alerts a
+             WHERE a.member_id = r.member_id AND a.resolved = 0
+           )
         ORDER BY
           CASE r.priority WHEN 'red' THEN 0 WHEN 'amber' THEN 1 ELSE 2 END,
           r.created_at DESC
@@ -985,6 +996,9 @@ def family_pulse_html(limit=10):
                 "body": detail,
                 "meta": f"{'Relative update' if is_report else 'Family check-in'} · {human_priority_label(row['priority'])} · {row['status']}",
                 "request_id": row.get("id"),
+                "token": row.get("token"),
+                "priority": row.get("priority") or "routine",
+                "status": row.get("status") or "",
             }
         )
         request_rank = {"red": 0, "amber": 1, "routine": 3}.get(row["priority"] or "routine", 3)
@@ -1058,7 +1072,7 @@ def family_pulse_html(limit=10):
             {
                 "at": "",
                 "side": "action",
-                "title": "Next step",
+                "title": "What to do now",
                 "body": next_action,
                 "meta": "Coordinator action",
             }
@@ -1092,37 +1106,125 @@ def family_pulse_html(limit=10):
 
 
 def care_thread_html(events):
+    min_time = datetime.min.replace(tzinfo=timezone.utc)
+
     def event_key(event):
         value = event.get("at")
         side_rank = {"responder": 2, "system": 1, "action": 0}.get(event.get("side") or "system", 1)
         if not value:
-            return (datetime.min, side_rank)
+            return (min_time, side_rank)
         try:
-            return (datetime.fromisoformat(str(value)), side_rank)
+            parsed = datetime.fromisoformat(str(value))
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(tzinfo=timezone.utc)
+            return (parsed, side_rank)
         except Exception:
-            return (datetime.min, side_rank)
+            return (min_time, side_rank)
 
-    bubbles = []
-    dated = [event for event in events if event.get("at")]
-    undated = [event for event in events if not event.get("at")]
-    for event in sorted(dated, key=event_key, reverse=True) + undated:
-        side = event.get("side") or "system"
-        css = {
-            "system": "ap-bubble-system",
-            "responder": "ap-bubble-responder",
-            "action": "ap-bubble-action",
-        }.get(side, "ap-bubble-system")
-        footer = " · ".join(part for part in [event.get("meta") or "", short_time(event.get("at"))] if part)
-        bubbles.append(
-            f"""
-            <div class="ap-bubble {css}">
-              <strong>{esc(event.get('title') or '')}</strong>
-              {esc(event.get('body') or '')}
-              <span>{esc(footer)}</span>
+    groups = {}
+    standalone = []
+    actions = []
+    for event in events:
+        if event.get("side") == "action":
+            actions.append(event)
+            continue
+        request_id = event.get("request_id")
+        if request_id:
+            group = groups.setdefault(request_id, {"request": None, "replies": []})
+            if event.get("side") == "responder":
+                group["replies"].append(event)
+            else:
+                group["request"] = event
+        else:
+            standalone.append(event)
+
+    latest_request_id = None
+    latest_key = (min_time, 0)
+    for request_id, group in groups.items():
+        candidates = [group.get("request")] + list(group.get("replies") or [])
+        candidates = [candidate for candidate in candidates if candidate]
+        group_key = max((event_key(candidate) for candidate in candidates), default=(min_time, 0))
+        if group_key > latest_key:
+            latest_key = group_key
+            latest_request_id = request_id
+
+    rendered = []
+    for group in groups.values():
+        request = group.get("request")
+        replies = sorted(group.get("replies") or [], key=event_key, reverse=True)
+        latest_event = replies[0] if replies else request
+        action = actions[0] if request and request.get("request_id") == latest_request_id and actions else None
+        rendered.append((event_key(latest_event or {}), render_request_pair(request, replies, action)))
+    for event in standalone:
+        rendered.append((event_key(event), render_bubble(event)))
+    rendered = [html for _, html in sorted(rendered, key=lambda item: item[0], reverse=True)]
+    if not groups:
+        for action in actions[:1]:
+            rendered.append(render_bubble(action))
+    return '<div class="ap-care-thread">' + "\n".join(rendered) + "</div>"
+
+
+def render_request_pair(request, replies, action=None):
+    if not request:
+        output = [render_bubble(reply) for reply in replies]
+        if action:
+            output.append(render_bubble(action))
+        return "\n".join(output)
+    priority = request.get("priority") or "routine"
+    status = request.get("status") or ""
+    answered = bool(replies) or status == "complete"
+    state = "answered" if answered else "waiting"
+    pair_class = f"ap-request-pair ap-pair-{priority} ap-pair-{state}"
+    parts = [render_bubble(request)]
+    if replies:
+        parts.extend(render_bubble(reply) for reply in replies)
+    else:
+        parts.append(
+            """
+            <div class="ap-bubble ap-bubble-action">
+              <strong>Waiting for reply</strong>
+              No response has been linked to this request yet.
             </div>
             """
         )
-    return '<div class="ap-care-thread">' + "\n".join(bubbles) + "</div>"
+    if action:
+        parts.append(render_bubble(action))
+    token = request.get("token")
+    if token:
+        link = checkin_link(token)
+        copy_arg = html.escape(json.dumps(link), quote=True)
+        parts.append(
+            f"""
+            <div class="ap-request-actions">
+              <a class="ap-link-btn" href="{esc(link)}" target="_blank" rel="noopener">Open link</a>
+              <button class="ap-link-btn" onclick="navigator.clipboard.writeText({copy_arg})">Copy link</button>
+            </div>
+            """
+        )
+    return f'<div class="{pair_class}">' + "\n".join(parts) + "</div>"
+
+
+def render_bubble(event):
+    side = event.get("side") or "system"
+    css = {
+        "system": "ap-bubble-system",
+        "responder": "ap-bubble-responder",
+        "action": "ap-bubble-action",
+    }.get(side, "ap-bubble-system")
+    footer = " · ".join(part for part in [event.get("meta") or "", short_time(event.get("at"))] if part)
+    return f"""
+    <div class="ap-bubble {css}">
+      <strong>{esc(event.get('title') or '')}</strong>
+      {esc(event.get('body') or '')}
+      <span>{esc(footer)}</span>
+    </div>
+    """
+
+
+def checkin_link(token):
+    path = f"/checkin/{token}"
+    base_url = os.getenv("PUBLIC_BASE_URL", "").rstrip("/")
+    return f"{base_url}{path}" if base_url else path
 
 
 def short_time(value):
@@ -1772,7 +1874,7 @@ def member_profile_html(member_id):
         (member_id,),
     )
     pending_lines = "\n".join(
-        f"<li><code>/checkin/{esc(row['token'])}</code> - {esc(row['reason_code'])} ({esc(row['status'])})</li>" for row in pending
+        f"<li>{esc(friendly_reason(row['reason_code']))} ({esc(row['status'])})</li>" for row in pending
     ) or "<li>None</li>"
     return f"""
 <div class="ap-profile">
@@ -2261,7 +2363,7 @@ def create_manual_request(member_id, reason_code, reason_detail, request_type, p
     )
     request = db.one("SELECT token FROM checkup_requests WHERE id = ?", (request_id,))
     return (
-        f"Created secure check-in link:\n\n`/checkin/{request['token']}`",
+        f"Created secure check-in link. Use **Open link** or **Send by WhatsApp** from the pending request controls.",
         status_cards_html(),
         active_requests_html(),
         recent_responses_html(),
@@ -2706,17 +2808,44 @@ def autopilot_result_text(result):
     return "\n".join(lines)
 
 
-def update_escalation_settings(member_id, reminder_minutes, amber_minutes, red_minutes):
+def update_escalation_settings(
+    member_id,
+    reminder_minutes,
+    amber_minutes,
+    red_minutes,
+    routine_messages_per_day,
+    amber_messages_per_day,
+    red_messages_per_day,
+):
     if not member_id:
         raise gr.Error("Choose a family member.")
-    db.update_escalation(member_id, reminder_minutes, amber_minutes, red_minutes)
-    member = db.one("SELECT name, reminder_minutes, escalation_minutes_amber, escalation_minutes_red FROM members WHERE id = ?", (member_id,))
+    db.update_escalation(
+        member_id,
+        reminder_minutes,
+        amber_minutes,
+        red_minutes,
+        routine_messages_per_day,
+        amber_messages_per_day,
+        red_messages_per_day,
+    )
+    member = db.one(
+        """
+        SELECT name, reminder_minutes, escalation_minutes_amber, escalation_minutes_red,
+               routine_messages_per_day, amber_messages_per_day, red_messages_per_day
+        FROM members WHERE id = ?
+        """,
+        (member_id,),
+    )
     return (
-        f"Updated {member['name']}: reminder {member['reminder_minutes']} min, "
-        f"needs attention {member['escalation_minutes_amber']} min, urgent follow-up {member['escalation_minutes_red']} min.",
+        f"Updated {member['name']}: routine {member['reminder_minutes']} min, "
+        f"check soon {member['escalation_minutes_amber']} min, urgent {member['escalation_minutes_red']} min. "
+        f"Daily caps: routine {member['routine_messages_per_day']}, check soon {member['amber_messages_per_day']}, urgent {member['red_messages_per_day']}.",
         gr.Number(value=member["reminder_minutes"]),
         gr.Number(value=member["escalation_minutes_amber"]),
         gr.Number(value=member["escalation_minutes_red"]),
+        gr.Number(value=member["routine_messages_per_day"]),
+        gr.Number(value=member["amber_messages_per_day"]),
+        gr.Number(value=member["red_messages_per_day"]),
         status_cards_html(),
         family_pulse_html(),
     )
@@ -2724,18 +2853,41 @@ def update_escalation_settings(member_id, reminder_minutes, amber_minutes, red_m
 
 def load_escalation_settings(member_id):
     if not member_id:
-        return gr.Number(value=10080), gr.Number(value=14400), gr.Number(value=20160), "Choose a family member."
+        return (
+            gr.Number(value=10080),
+            gr.Number(value=14400),
+            gr.Number(value=20160),
+            gr.Number(value=1),
+            gr.Number(value=1),
+            gr.Number(value=2),
+            "Choose a family member.",
+        )
     member = db.one(
-        "SELECT name, reminder_minutes, escalation_minutes_amber, escalation_minutes_red FROM members WHERE id = ?",
+        """
+        SELECT name, reminder_minutes, escalation_minutes_amber, escalation_minutes_red,
+               routine_messages_per_day, amber_messages_per_day, red_messages_per_day
+        FROM members WHERE id = ?
+        """,
         (member_id,),
     )
     if not member:
-        return gr.Number(value=10080), gr.Number(value=14400), gr.Number(value=20160), "Member not found."
+        return (
+            gr.Number(value=10080),
+            gr.Number(value=14400),
+            gr.Number(value=20160),
+            gr.Number(value=1),
+            gr.Number(value=1),
+            gr.Number(value=2),
+            "Member not found.",
+        )
     return (
         gr.Number(value=member["reminder_minutes"]),
         gr.Number(value=member["escalation_minutes_amber"]),
         gr.Number(value=member["escalation_minutes_red"]),
-        f"Loaded {member['name']}: reminder {member['reminder_minutes']} min, needs attention {member['escalation_minutes_amber']} min, urgent follow-up {member['escalation_minutes_red']} min.",
+        gr.Number(value=member["routine_messages_per_day"]),
+        gr.Number(value=member["amber_messages_per_day"]),
+        gr.Number(value=member["red_messages_per_day"]),
+        f"Loaded {member['name']}: routine {member['reminder_minutes']} min, check soon {member['escalation_minutes_amber']} min, urgent {member['escalation_minutes_red']} min.",
     )
 
 
@@ -3065,12 +3217,16 @@ def build_app():
                         relay_member = gr.Dropdown(choices=member_choices(), label="Person needing follow-up")
                         nudge_btn = gr.Button("Draft relative nudge", variant="primary")
                     nudge_output = gr.Textbox(label="WhatsApp nudge draft", lines=4, interactive=False)
-                    gr.HTML('<div class="ap-section-title">Escalation timing</div>')
+                    gr.HTML('<div class="ap-section-title">Care timing and frequency</div>')
                     policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
                     with gr.Row():
-                        reminder_minutes = gr.Number(label="Reminder after minutes", value=10080, precision=0)
-                        amber_minutes = gr.Number(label="Please check soon after minutes", value=14400, precision=0)
+                        reminder_minutes = gr.Number(label="Routine check-in after minutes", value=10080, precision=0)
+                        amber_minutes = gr.Number(label="Ask family to check soon after minutes", value=14400, precision=0)
                         red_minutes = gr.Number(label="Urgent follow-up after minutes", value=20160, precision=0)
+                    with gr.Row():
+                        routine_messages_per_day = gr.Number(label="Routine messages per day", value=1, precision=0)
+                        amber_messages_per_day = gr.Number(label="Check-soon messages per day", value=1, precision=0)
+                        red_messages_per_day = gr.Number(label="Urgent messages per day", value=2, precision=0)
                     policy_btn = gr.Button("Save escalation policy", variant="primary")
                     policy_output = gr.Textbox(label="Policy update", interactive=False)
                     gr.HTML('<div class="ap-section-title">TTS prompt check</div>')
@@ -3303,11 +3459,41 @@ def build_app():
             ],
             outputs=[affiliation_output, affiliation_table, member_profile, family_table, care_routes],
         )
-        policy_member.change(load_escalation_settings, inputs=[policy_member], outputs=[reminder_minutes, amber_minutes, red_minutes, policy_output])
+        policy_member.change(
+            load_escalation_settings,
+            inputs=[policy_member],
+            outputs=[
+                reminder_minutes,
+                amber_minutes,
+                red_minutes,
+                routine_messages_per_day,
+                amber_messages_per_day,
+                red_messages_per_day,
+                policy_output,
+            ],
+        )
         policy_btn.click(
             update_escalation_settings,
-            inputs=[policy_member, reminder_minutes, amber_minutes, red_minutes],
-            outputs=[policy_output, reminder_minutes, amber_minutes, red_minutes, status_cards, family_table],
+            inputs=[
+                policy_member,
+                reminder_minutes,
+                amber_minutes,
+                red_minutes,
+                routine_messages_per_day,
+                amber_messages_per_day,
+                red_messages_per_day,
+            ],
+            outputs=[
+                policy_output,
+                reminder_minutes,
+                amber_minutes,
+                red_minutes,
+                routine_messages_per_day,
+                amber_messages_per_day,
+                red_messages_per_day,
+                status_cards,
+                family_table,
+            ],
         )
         add_btn.click(
             add_member,

@@ -71,6 +71,9 @@ def migrate_schema(conn: sqlite3.Connection) -> None:
             "reminder_minutes": "INTEGER DEFAULT 10080",
             "escalation_minutes_amber": "INTEGER DEFAULT 14400",
             "escalation_minutes_red": "INTEGER DEFAULT 20160",
+            "routine_messages_per_day": "INTEGER DEFAULT 1",
+            "amber_messages_per_day": "INTEGER DEFAULT 1",
+            "red_messages_per_day": "INTEGER DEFAULT 2",
             "call_enabled": "INTEGER DEFAULT 1",
             "family_role": "TEXT DEFAULT 'relative'",
             "is_coordinator": "INTEGER DEFAULT 0",
@@ -227,8 +230,9 @@ def add_member(
             INSERT INTO members
             (id, name, phone, whatsapp, location_city, location_region, language, family_role,
              is_coordinator, checkin_url_token, reminder_minutes, escalation_minutes_amber,
-             escalation_minutes_red, call_enabled, created_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             escalation_minutes_red, routine_messages_per_day, amber_messages_per_day,
+             red_messages_per_day, call_enabled, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 member_id,
@@ -244,6 +248,9 @@ def add_member(
                 10080,
                 14400,
                 20160,
+                1,
+                1,
+                2,
                 int(call_enabled),
                 now_iso(),
             ),
@@ -393,20 +400,40 @@ def affiliation_rows(member_id: str | None = None) -> list[dict[str, Any]]:
     )
 
 
-def update_escalation(member_id: str, reminder_minutes: int, amber_minutes: int, red_minutes: int) -> None:
+def update_escalation(
+    member_id: str,
+    reminder_minutes: int,
+    amber_minutes: int,
+    red_minutes: int,
+    routine_messages_per_day: int = 1,
+    amber_messages_per_day: int = 1,
+    red_messages_per_day: int = 2,
+) -> None:
     reminder_minutes = max(1, int(reminder_minutes))
     amber_minutes = max(1, int(amber_minutes))
     if amber_minutes <= reminder_minutes:
         amber_minutes = reminder_minutes + 1
     red_minutes = max(amber_minutes + 1, int(red_minutes))
+    routine_messages_per_day = max(0, int(routine_messages_per_day or 0))
+    amber_messages_per_day = max(0, int(amber_messages_per_day or 0))
+    red_messages_per_day = max(0, int(red_messages_per_day or 0))
     with connect() as conn:
         conn.execute(
             """
             UPDATE members
-            SET reminder_minutes = ?, escalation_minutes_amber = ?, escalation_minutes_red = ?
+            SET reminder_minutes = ?, escalation_minutes_amber = ?, escalation_minutes_red = ?,
+                routine_messages_per_day = ?, amber_messages_per_day = ?, red_messages_per_day = ?
             WHERE id = ?
             """,
-            (reminder_minutes, amber_minutes, red_minutes, member_id),
+            (
+                reminder_minutes,
+                amber_minutes,
+                red_minutes,
+                routine_messages_per_day,
+                amber_messages_per_day,
+                red_messages_per_day,
+                member_id,
+            ),
         )
 
 
@@ -561,11 +588,13 @@ def _decode_json_list(value: Any) -> list[Any]:
 
 
 def _is_noop_action(value: Any) -> bool:
-    return str(value).startswith("No silence escalations")
+    text = str(value)
+    return text.startswith("No silence escalations") or text.startswith("Excluded from autopilot")
 
 
 def _is_noop_delivery(value: Any) -> bool:
-    return str(value).startswith("No pending autopilot WhatsApp messages")
+    text = str(value)
+    return text.startswith("No pending autopilot WhatsApp messages") or "Frequency cap reached" in text
 
 
 def _compact_run_details(actions: list[Any], deliveries: list[Any], error: str) -> str:
@@ -830,6 +859,19 @@ def create_checkup_request(
     return request_id
 
 
+def open_checkup_request(member_id: str, reason_code: str, request_type: str = "elder_checkin") -> dict[str, Any] | None:
+    return one(
+        """
+        SELECT * FROM checkup_requests
+        WHERE member_id = ? AND reason_code = ? AND request_type = ?
+          AND status IN ('pending', 'sent', 'processing', 'needs_review')
+        ORDER BY created_at DESC
+        LIMIT 1
+        """,
+        (member_id, reason_code, request_type),
+    )
+
+
 def get_request_by_token(token: str) -> dict[str, Any] | None:
     return one(
         """
@@ -876,6 +918,40 @@ def pending_request_for_member(member_id: str, reason_code: str) -> dict[str, An
         """,
         (member_id, reason_code),
     )
+
+
+def outbound_count_for_member_priority(member_id: str, priority: str, since_iso: str) -> int:
+    row = one(
+        """
+        SELECT COUNT(*) AS n
+        FROM outbound_messages o
+        JOIN checkup_requests r ON r.id = o.request_id
+        WHERE r.member_id = ?
+          AND r.priority = ?
+          AND o.created_at >= ?
+          AND COALESCE(o.status, '') NOT IN ('failed', 'undelivered')
+        """,
+        (member_id, priority, since_iso),
+    )
+    return int(row["n"] if row else 0)
+
+
+def member_frequency_cap(member_id: str, priority: str) -> int:
+    member = one(
+        """
+        SELECT routine_messages_per_day, amber_messages_per_day, red_messages_per_day
+        FROM members
+        WHERE id = ?
+        """,
+        (member_id,),
+    )
+    if not member:
+        return 0
+    if priority == "red":
+        return int(member.get("red_messages_per_day") or 0)
+    if priority == "amber":
+        return int(member.get("amber_messages_per_day") or 0)
+    return int(member.get("routine_messages_per_day") or 0)
 
 
 def record_model_run(
