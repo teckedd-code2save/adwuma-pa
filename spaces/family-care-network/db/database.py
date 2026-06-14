@@ -1087,8 +1087,11 @@ def outbound_rows(limit: int = 20) -> list[dict[str, Any]]:
     )
 
 
-def resolve_alert(alert_id: str, resolved_by: str, notes: str) -> None:
+def resolve_alert(alert_id: str, resolved_by: str, notes: str) -> dict[str, Any] | None:
     with connect() as conn:
+        alert = conn.execute("SELECT id, member_id FROM alerts WHERE id = ?", (alert_id,)).fetchone()
+        if not alert:
+            return None
         conn.execute(
             """
             UPDATE alerts
@@ -1097,3 +1100,50 @@ def resolve_alert(alert_id: str, resolved_by: str, notes: str) -> None:
             """,
             (now_iso(), resolved_by, notes, alert_id),
         )
+        open_requests = conn.execute(
+            """
+            SELECT id, related_nudge_id
+            FROM checkup_requests
+            WHERE status IN ('pending', 'sent', 'processing', 'needs_review')
+              AND (
+                related_alert_id = ?
+                OR (
+                  related_alert_id IS NULL
+                  AND member_id = ?
+                  AND requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
+                )
+              )
+            """,
+            (alert_id, alert["member_id"]),
+        ).fetchall()
+        linked_nudges = conn.execute(
+            """
+            SELECT DISTINCT related_nudge_id
+            FROM checkup_requests
+            WHERE related_nudge_id IS NOT NULL
+              AND (
+                related_alert_id = ?
+                OR (
+                  related_alert_id IS NULL
+                  AND member_id = ?
+                  AND requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
+                )
+              )
+            """,
+            (alert_id, alert["member_id"]),
+        ).fetchall()
+        request_ids = [row["id"] for row in open_requests]
+        nudge_ids = [row["related_nudge_id"] for row in linked_nudges]
+        if request_ids:
+            placeholders = ",".join("?" for _ in request_ids)
+            conn.execute(
+                f"UPDATE checkup_requests SET status = 'complete' WHERE id IN ({placeholders})",
+                tuple(request_ids),
+            )
+        if nudge_ids:
+            placeholders = ",".join("?" for _ in nudge_ids)
+            conn.execute(
+                f"UPDATE nudges SET responded_at = COALESCE(responded_at, ?) WHERE id IN ({placeholders})",
+                (now_iso(), *nudge_ids),
+            )
+        return {"alert_id": alert_id, "closed_requests": len(request_ids), "closed_nudges": len(nudge_ids)}

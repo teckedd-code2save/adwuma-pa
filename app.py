@@ -521,6 +521,13 @@ label:has(input[type="radio"]:checked) {
 .ap-bubble-action { background: #fff7ed; border-color: #fed7aa; justify-self: start; }
 .ap-request-actions { align-items: center; display: flex; gap: 8px; margin-top: 8px; }
 .ap-link-btn { background: var(--ap-surface) !important; border: 1px solid var(--ap-line-strong) !important; border-radius: 8px; color: var(--ap-ink) !important; cursor: pointer; display: inline-flex; font-size: 12px; font-weight: 700; line-height: 1; padding: 7px 9px; text-decoration: none !important; }
+.ap-resolve-panel { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: 12px; display: grid; gap: 8px; margin-top: 12px; padding: 10px; }
+.ap-resolve-panel strong { color: var(--ap-ink); font-size: 13px; }
+.ap-resolve-panel span { color: var(--ap-muted); font-size: 12px; line-height: 1.35; }
+.ap-resolve-grid { display: grid; gap: 8px; grid-template-columns: minmax(0, .65fr) minmax(0, 1.35fr) auto; }
+.ap-resolve-grid input { background: #fff !important; border: 1px solid var(--ap-line-strong) !important; border-radius: 8px !important; color: var(--ap-ink) !important; font-size: 13px !important; min-width: 0; padding: 8px 9px !important; }
+.ap-resolve-grid button { background: var(--ap-ink) !important; border: 1px solid var(--ap-ink) !important; border-radius: 8px !important; color: #fff !important; cursor: pointer; font-size: 13px !important; font-weight: 800 !important; padding: 8px 10px !important; white-space: nowrap; }
+.ap-resolve-frame { display: none; height: 0; width: 0; }
 
 /* ------------------------------ Pulse rows ------------------------------ */
 .ap-pulse-row {
@@ -655,6 +662,7 @@ details[open] > summary { background: var(--ap-surface-soft) !important; border-
   .ap-title { white-space: normal; }
   .ap-header-side, .ap-recorder { margin-top: 12px; }
   .ap-flow, .ap-status-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ap-resolve-grid { grid-template-columns: 1fr; }
 }
 """
 
@@ -895,7 +903,7 @@ def attention_sort_key(row):
 def family_pulse_html(limit=10):
     alerts = db.rows(
         """
-        SELECT a.member_id, a.alert_type, a.created_at, COALESCE(a.notes, '') AS notes,
+        SELECT a.id, a.member_id, a.alert_type, a.created_at, COALESCE(a.notes, '') AS notes,
                m.name, m.location_city, COALESCE(m.family_role, 'family') AS family_role
         FROM alerts a
         JOIN members m ON m.id = a.member_id
@@ -915,6 +923,7 @@ def family_pulse_html(limit=10):
     requests = db.rows(
         """
         SELECT r.id, r.member_id, r.token, r.request_type, r.reason_code, r.reason_detail, r.priority, r.status,
+               r.related_alert_id,
                r.created_at, m.name, m.location_city, COALESCE(m.family_role, 'family') AS family_role,
                c.name AS contact_name, c.location_city AS contact_city
         FROM checkup_requests r
@@ -943,6 +952,7 @@ def family_pulse_html(limit=10):
                 "city": row["location_city"],
                 "role": row["family_role"],
                 "alerts": [],
+                "primary_alert_id": "",
                 "requests": [],
                 "events": [],
             }
@@ -954,7 +964,8 @@ def family_pulse_html(limit=10):
         label = human_alert_label(row["alert_type"])
         note = first_note_line(humanize_legacy_text(row["notes"], row["name"]))
         if not item["alerts"]:
-            item["alerts"].append({"label": label, "note": note, "type": row["alert_type"]})
+            item["primary_alert_id"] = row["id"]
+            item["alerts"].append({"id": row["id"], "label": label, "note": note, "type": row["alert_type"], "created_at": row["created_at"]})
         item["events"].append(
             {
                 "at": row["created_at"],
@@ -962,6 +973,7 @@ def family_pulse_html(limit=10):
                 "title": label,
                 "body": note,
                 "meta": "Ani Kɛse opened a case",
+                "case_id": row["id"],
             }
         )
         severity[row["member_id"]] = min(severity[row["member_id"]], attention_sort_key({"Type": row["alert_type"]}))
@@ -986,6 +998,7 @@ def family_pulse_html(limit=10):
                     "token": row["token"],
                     "priority": row["priority"] or "routine",
                     "id": row.get("id"),
+                    "case_id": row.get("related_alert_id") or item.get("primary_alert_id") or "",
                 }
             )
         item["events"].append(
@@ -999,6 +1012,7 @@ def family_pulse_html(limit=10):
                 "token": row.get("token"),
                 "priority": row.get("priority") or "routine",
                 "status": row.get("status") or "",
+                "case_id": row.get("related_alert_id") or item.get("primary_alert_id") or "",
             }
         )
         request_rank = {"red": 0, "amber": 1, "routine": 3}.get(row["priority"] or "routine", 3)
@@ -1077,7 +1091,9 @@ def family_pulse_html(limit=10):
                 "meta": "Coordinator action",
             }
         )
-        thread = care_thread_html(item["events"])
+        alert = item["alerts"][0] if item["alerts"] else None
+        thread = care_thread_html(item["events"], alert["id"] if alert else "")
+        resolve_form = resolve_case_form_html(member_id, item, alert) if alert else ""
         concern_level = evidence["concern_level"] if evidence else None
         meter = concern_meter_html(concern_level)
         cards.append(
@@ -1097,6 +1113,7 @@ def family_pulse_html(limit=10):
                 </div>
               </div>
               {thread}
+              {resolve_form}
             </article>
             """
         )
@@ -1105,7 +1122,7 @@ def family_pulse_html(limit=10):
     return '<section class="ap-care-board-list">' + "\n".join(cards) + "</section>"
 
 
-def care_thread_html(events):
+def care_thread_html(events, case_id=""):
     min_time = datetime.min.replace(tzinfo=timezone.utc)
 
     def event_key(event):
@@ -1161,7 +1178,29 @@ def care_thread_html(events):
     if not groups:
         for action in actions[:1]:
             rendered.append(render_bubble(action))
-    return '<div class="ap-care-thread">' + "\n".join(rendered) + "</div>"
+    case_attr = f' data-case-id="{esc(case_id)}"' if case_id else ""
+    return f'<div class="ap-care-thread"{case_attr}>' + "\n".join(rendered) + "</div>"
+
+
+def resolve_case_form_html(member_id, item, alert):
+    case_id = alert["id"]
+    label = alert.get("label") or "Open case"
+    created = short_time(alert.get("created_at"))
+    default_by = "Coordinator"
+    default_note = "Confirmed follow-up and closed this care loop."
+    return f"""
+    <form class="ap-resolve-panel" action="/resolve/{esc(case_id)}" method="post" target="ap_resolve_frame_{esc(case_id)}"
+          onsubmit="setTimeout(() => window.location.reload(), 900)">
+      <strong>Close this care loop</strong>
+      <span>{esc(item['name'])} · {esc(label)}{(' · ' + esc(created)) if created else ''}. This closes the case and any open requests linked to it.</span>
+      <div class="ap-resolve-grid">
+        <input name="resolved_by" value="{esc(default_by)}" aria-label="Confirmed by">
+        <input name="notes" value="{esc(default_note)}" aria-label="What happened">
+        <button type="submit">Close loop</button>
+      </div>
+      <iframe class="ap-resolve-frame" name="ap_resolve_frame_{esc(case_id)}"></iframe>
+    </form>
+    """
 
 
 def render_request_pair(request, replies, action=None):
@@ -2285,9 +2324,11 @@ def checkin_receipt(result):
 def resolve_selected_alert(alert_id, resolved_by, notes):
     if not alert_id:
         raise gr.Error("Choose the alert or case to resolve.")
-    db.resolve_alert(alert_id, resolved_by or "Coordinator", notes or "Loop closed.")
+    result = db.resolve_alert(alert_id, resolved_by or "Coordinator", notes or "Loop closed.")
+    if not result:
+        raise gr.Error("Case not found.")
     return (
-        f"Resolved {alert_id}.",
+        f"Resolved {alert_id}. Closed {result['closed_requests']} linked request(s).",
         attention_queue_html(),
         gr.Dropdown(choices=alert_choices(), value=None),
         family_pulse_html(),
@@ -2642,6 +2683,21 @@ def process_public_checkin(token: str, text: str, language: str, source: str) ->
     )
 
 
+def resolve_case_result_page(result: dict | None) -> str:
+    if not result:
+        message = "Case not found."
+    else:
+        message = (
+            f"Care loop closed. Linked requests closed: {result['closed_requests']}. "
+            f"Linked nudges closed: {result['closed_nudges']}."
+        )
+    return f"""<!doctype html>
+<html lang="en">
+<head><meta charset="utf-8"><style>body{{font-family:system-ui,sans-serif;color:#0f172a;margin:12px;font-size:14px}}</style></head>
+<body>{html.escape(message)}</body>
+</html>"""
+
+
 def install_webhook_routes(server):
     @server.get("/checkin/{token}")
     async def public_checkin(token: str):
@@ -2692,6 +2748,17 @@ def install_webhook_routes(server):
             ),
             media_type="text/html",
         )
+
+    @server.post("/resolve/{alert_id}")
+    async def resolve_case(alert_id: str, request: Request):
+        db.init_db()
+        raw_body = (await request.body()).decode("utf-8")
+        payload = {key: values[0] if values else "" for key, values in parse_qs(raw_body).items()}
+        resolved_by = (payload.get("resolved_by") or "Coordinator").strip()
+        notes = (payload.get("notes") or "Loop closed.").strip()
+        result = db.resolve_alert(alert_id, resolved_by, notes)
+        status_code = 200 if result else 404
+        return Response(content=resolve_case_result_page(result), status_code=status_code, media_type="text/html")
 
     @server.get("/twilio/health")
     async def twilio_health():
@@ -3016,11 +3083,11 @@ def build_app():
                         family_table = gr.HTML(family_pulse_html())
                         requests = gr.HTML(active_requests_html(), visible=False)
                         alerts = gr.HTML(attention_queue_html(), visible=False)
-                        alert_picker = gr.Dropdown(choices=alert_choices(), label="Case to close")
-                        resolved_by = gr.Textbox(label="Confirmed by", value="")
-                        resolution_notes = gr.Textbox(label="What happened", value="", lines=2)
-                        resolve_btn = gr.Button("Close selected case", variant="primary")
-                        resolve_output = gr.Textbox(label="Closure result", interactive=False)
+                        alert_picker = gr.Dropdown(choices=alert_choices(), label="Case to close", visible=False)
+                        resolved_by = gr.Textbox(label="Confirmed by", value="", visible=False)
+                        resolution_notes = gr.Textbox(label="What happened", value="", lines=2, visible=False)
+                        resolve_btn = gr.Button("Close selected case", variant="primary", visible=False)
+                        resolve_output = gr.Textbox(label="Closure result", interactive=False, visible=False)
                         recent_responses = gr.HTML(recent_responses_html(), visible=False)
                     with gr.Column(scale=1):
                         gr.HTML('<div class="ap-cockpit-title">Quick Actions</div>')
