@@ -501,9 +501,7 @@ label:has(input[type="radio"]:checked) {
 
 /* ------------------------------ Care board cards ------------------------------ */
 .ap-pulse-list, .ap-care-board-list { display: grid; gap: 10px; }
-.ap-care-card { background: var(--ap-surface); border: 1px solid var(--ap-line); border-left: 4px solid var(--ap-accent); border-radius: var(--ap-radius-sm); padding: 14px; box-shadow: var(--ap-shadow-soft); }
-.ap-care-card.ap-urgent { border-left-color: var(--ap-red); }
-.ap-care-card.ap-attention, .ap-care-card.ap-check-soon { border-left-color: var(--ap-amber); }
+.ap-care-card { background: var(--ap-surface); border: 1px solid var(--ap-line); border-radius: var(--ap-radius-sm); padding: 14px; box-shadow: var(--ap-shadow-soft); }
 .ap-care-head { align-items: start; display: flex; gap: 10px; justify-content: space-between; }
 .ap-care-head strong { color: var(--ap-ink); display: block; font-size: 15px; }
 .ap-care-head span, .ap-care-line { color: var(--ap-ink-soft); display: block; font-size: 13px; line-height: 1.5; margin-top: 4px; }
