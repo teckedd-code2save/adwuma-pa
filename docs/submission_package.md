@@ -65,3 +65,4 @@ The goal is not another dashboard. It is a central nervous system for family car
 
 Space: https://huggingface.co/spaces/build-small-hackathon/family-care-network
 GitHub: https://github.com/teckedd-code2save/adwuma-pa
+Article: https://huggingface.co/blog/build-small-hackathon/ani-kese-small-model-care-loop
