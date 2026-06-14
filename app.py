@@ -2864,6 +2864,10 @@ def build_app():
                         new_name = gr.Textbox(label="Name")
                         new_phone = gr.Textbox(label="Phone")
                         new_whatsapp = gr.Textbox(label="WhatsApp")
+                    gr.Markdown(
+                        "Before WhatsApp messages can deliver in the Twilio sandbox, ask this person to message "
+                        "`join catch-thousand` to `+1 415 523 8886` on WhatsApp."
+                    )
                     with gr.Row():
                         new_city = gr.Textbox(label="City")
                         new_region = gr.Dropdown(choices=GHANA_REGIONS, value="Greater Accra", label="Region")
