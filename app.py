@@ -2947,6 +2947,9 @@ def build_app():
                         label="WhatsApp delivery",
                         value=settings["send_whatsapp"],
                     )
+                gr.Markdown(
+                    "Modal cron wakes the system every 15 minutes. This setting controls how often Ani Kɛse actually scans and sends, so skipped cron ticks are expected when the saved interval has not elapsed."
+                )
                 with gr.Row():
                     save_autopilot_btn = gr.Button("Save autopilot settings")
                     scan_btn = gr.Button("Run scan now", variant="primary")
