@@ -837,6 +837,16 @@ def humanize_legacy_text(value, member_name=None):
         return ""
     person = member_name or "this person"
 
+    no_history_pattern = r"(?:9999 minutes|6 days 22 hr|6 days 23 hr|7 days)"
+
+    def no_history_urgent(match):
+        matched_person = match.group(1).strip() if match.lastindex else person
+        return f"We have no recorded check-in yet for {matched_person}. This needs urgent follow-up."
+
+    def no_history_attention(match):
+        matched_person = match.group(1).strip() if match.lastindex else person
+        return f"We have no recorded check-in yet for {matched_person}. Please check soon."
+
     def missed_urgent(match):
         return f"We have not heard from {person} for {match.group(1).strip()}. This needs urgent follow-up."
 
@@ -850,8 +860,22 @@ def humanize_legacy_text(value, member_name=None):
     text = re.sub(r"No check-in for ([^;.]+)[.;]\s*amber threshold is [^.]+\.?", missed_attention, text, flags=re.I)
     text = re.sub(r"No check-in for ([^;.]+)[.;]\s*reminder threshold is [^.]+\.?", missed_reminder, text, flags=re.I)
     text = re.sub(
+        rf"We have not heard from (.+?) for {no_history_pattern}\.\s*This needs urgent follow-up\.?",
+        no_history_urgent,
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
+        rf"We have not heard from (.+?) for {no_history_pattern}\.\s*Please check soon\.?",
+        no_history_attention,
+        text,
+        flags=re.I,
+    )
+    text = re.sub(
         r"We have not heard from (.+?) for ([^.]+)\.\s*This is past their urgent follow-up window of [^.]+\.?",
-        lambda m: f"We have not heard from {m.group(1).strip()} for {m.group(2).strip()}. This needs urgent follow-up.",
+        lambda m: no_history_urgent(m)
+        if re.search(no_history_pattern, m.group(2), flags=re.I)
+        else f"We have not heard from {m.group(1).strip()} for {m.group(2).strip()}. This needs urgent follow-up.",
         text,
         flags=re.I,
     )
