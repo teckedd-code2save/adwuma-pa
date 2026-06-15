@@ -924,18 +924,21 @@ def pending_request_for_member(member_id: str, reason_code: str) -> dict[str, An
     )
 
 
-def outbound_count_for_member_priority(member_id: str, priority: str, since_iso: str) -> int:
+def outbound_count_for_member_priority(member_id: str, priority: str, since_iso: str, request_type: str | None = None) -> int:
+    type_filter = "AND r.request_type = ?" if request_type else ""
+    params: tuple[Any, ...] = (member_id, priority, since_iso, request_type) if request_type else (member_id, priority, since_iso)
     row = one(
-        """
+        f"""
         SELECT COUNT(*) AS n
         FROM outbound_messages o
         JOIN checkup_requests r ON r.id = o.request_id
         WHERE r.member_id = ?
           AND r.priority = ?
           AND o.created_at >= ?
+          {type_filter}
           AND COALESCE(o.status, '') NOT IN ('failed', 'undelivered')
         """,
-        (member_id, priority, since_iso),
+        params,
     )
     return int(row["n"] if row else 0)
 

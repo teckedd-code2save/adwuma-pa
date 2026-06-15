@@ -74,30 +74,37 @@ def scan_due(settings: dict[str, Any]) -> bool:
 
 
 def send_autopilot_whatsapp() -> list[str]:
-    pending = db.rows(
+    open_requests = db.rows(
         """
-        SELECT id, member_id, priority
+        SELECT id, member_id, priority, request_type, status
         FROM checkup_requests
         WHERE requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
           AND channel = 'whatsapp'
-          AND status = 'pending'
+          AND status IN ('pending', 'sent')
         ORDER BY
           CASE priority WHEN 'red' THEN 0 WHEN 'amber' THEN 1 ELSE 2 END,
+          CASE status WHEN 'pending' THEN 0 ELSE 1 END,
           created_at ASC
         LIMIT 20
         """
     )
     deliveries = []
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
-    for row in pending:
+    for row in open_requests:
         cap = db.member_frequency_cap(row["member_id"], row["priority"] or "routine")
-        sent = db.outbound_count_for_member_priority(row["member_id"], row["priority"] or "routine", since)
+        sent = db.outbound_count_for_member_priority(
+            row["member_id"],
+            row["priority"] or "routine",
+            since,
+            row.get("request_type"),
+        )
         if sent >= cap:
             deliveries.append(f"{row['id']}: Frequency cap reached; no WhatsApp sent.")
             continue
         result = twilio_client.send_request_link(row["id"])
+        action = "resent" if row["status"] == "sent" else "sent"
         if result.sid:
-            deliveries.append(f"{row['id']}: {result.message} SID: {result.sid}")
+            deliveries.append(f"{row['id']}: WhatsApp {action}. SID: {result.sid}")
         else:
             deliveries.append(f"{row['id']}: {result.message}")
     if not deliveries:
