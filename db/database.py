@@ -924,9 +924,18 @@ def pending_request_for_member(member_id: str, reason_code: str) -> dict[str, An
     )
 
 
-def outbound_count_for_member_priority(member_id: str, priority: str, since_iso: str, request_type: str | None = None) -> int:
+def outbound_count_for_member_priority(
+    member_id: str,
+    priority: str,
+    since_iso: str,
+    request_type: str | None = None,
+    recent_attempt_since_iso: str | None = None,
+) -> int:
     type_filter = "AND r.request_type = ?" if request_type else ""
-    params: tuple[Any, ...] = (member_id, priority, since_iso, request_type) if request_type else (member_id, priority, since_iso)
+    params_list: list[Any] = [member_id, priority, since_iso]
+    if request_type:
+        params_list.append(request_type)
+    params_list.append(recent_attempt_since_iso or since_iso)
     row = one(
         f"""
         SELECT COUNT(*) AS n
@@ -936,21 +945,31 @@ def outbound_count_for_member_priority(member_id: str, priority: str, since_iso:
           AND r.priority = ?
           AND o.created_at >= ?
           {type_filter}
-          AND COALESCE(o.status, '') NOT IN ('failed', 'undelivered')
+          AND (
+            COALESCE(o.status, '') IN ('delivered', 'read')
+            OR (
+              COALESCE(o.status, '') IN ('sent', 'queued')
+              AND o.created_at >= ?
+            )
+          )
         """,
-        params,
+        tuple(params_list),
     )
     return int(row["n"] if row else 0)
 
 
-def outbound_count_for_recipient_priority(recipient_member_id: str, priority: str, since_iso: str, request_type: str | None = None) -> int:
+def outbound_count_for_recipient_priority(
+    recipient_member_id: str,
+    priority: str,
+    since_iso: str,
+    request_type: str | None = None,
+    recent_attempt_since_iso: str | None = None,
+) -> int:
     type_filter = "AND r.request_type = ?" if request_type else ""
-    params: tuple[Any, ...] = (
-        recipient_member_id,
-        priority,
-        since_iso,
-        request_type,
-    ) if request_type else (recipient_member_id, priority, since_iso)
+    params_list: list[Any] = [recipient_member_id, priority, since_iso]
+    if request_type:
+        params_list.append(request_type)
+    params_list.append(recent_attempt_since_iso or since_iso)
     row = one(
         f"""
         SELECT COUNT(*) AS n
@@ -960,9 +979,15 @@ def outbound_count_for_recipient_priority(recipient_member_id: str, priority: st
           AND r.priority = ?
           AND o.created_at >= ?
           {type_filter}
-          AND COALESCE(o.status, '') NOT IN ('failed', 'undelivered')
+          AND (
+            COALESCE(o.status, '') IN ('delivered', 'read')
+            OR (
+              COALESCE(o.status, '') IN ('sent', 'queued')
+              AND o.created_at >= ?
+            )
+          )
         """,
-        params,
+        tuple(params_list),
     )
     return int(row["n"] if row else 0)
 

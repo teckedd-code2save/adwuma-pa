@@ -102,6 +102,7 @@ def send_autopilot_whatsapp() -> list[str]:
     )
     deliveries = []
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
+    recent_attempt_since = (datetime.now(timezone.utc) - timedelta(minutes=15)).isoformat(timespec="seconds")
     for row in open_requests:
         cap_member_id = row.get("cap_member_id") or row["member_id"]
         cap = db.member_frequency_cap(cap_member_id, row["priority"] or "routine")
@@ -110,6 +111,7 @@ def send_autopilot_whatsapp() -> list[str]:
             row["priority"] or "routine",
             since,
             row.get("request_type"),
+            recent_attempt_since,
         )
         label = request_delivery_label(row)
         if sent >= cap:
