@@ -76,15 +76,25 @@ def scan_due(settings: dict[str, Any]) -> bool:
 def send_autopilot_whatsapp() -> list[str]:
     open_requests = db.rows(
         """
-        SELECT id, member_id, priority, request_type, status
-        FROM checkup_requests
-        WHERE requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
-          AND channel = 'whatsapp'
-          AND status IN ('pending', 'sent')
+        SELECT r.id,
+               r.member_id,
+               r.priority,
+               r.request_type,
+               r.status,
+               m.name AS watched_name,
+               COALESCE(c.name, m.name) AS recipient_name,
+               COALESCE(c.whatsapp, m.whatsapp, c.phone, m.phone) AS recipient_phone
+        FROM checkup_requests r
+        JOIN members m ON m.id = r.member_id
+        LEFT JOIN nudges n ON n.id = r.related_nudge_id
+        LEFT JOIN members c ON c.id = n.contact_id
+        WHERE r.requester IN ('Ani Kɛse autopilot', 'Adwuma Pa autopilot')
+          AND r.channel = 'whatsapp'
+          AND r.status IN ('pending', 'sent')
         ORDER BY
-          CASE priority WHEN 'red' THEN 0 WHEN 'amber' THEN 1 ELSE 2 END,
-          CASE status WHEN 'pending' THEN 0 ELSE 1 END,
-          created_at ASC
+          CASE r.priority WHEN 'red' THEN 0 WHEN 'amber' THEN 1 ELSE 2 END,
+          CASE r.status WHEN 'pending' THEN 0 ELSE 1 END,
+          r.created_at ASC
         LIMIT 20
         """
     )
@@ -98,18 +108,28 @@ def send_autopilot_whatsapp() -> list[str]:
             since,
             row.get("request_type"),
         )
+        label = request_delivery_label(row)
         if sent >= cap:
-            deliveries.append(f"{row['id']}: Frequency cap reached; no WhatsApp sent.")
+            deliveries.append(f"{row['id']} ({label}): Frequency cap reached ({sent}/{cap} today); no WhatsApp sent.")
             continue
         result = twilio_client.send_request_link(row["id"])
         action = "resent" if row["status"] == "sent" else "sent"
         if result.sid:
-            deliveries.append(f"{row['id']}: WhatsApp {action}. SID: {result.sid}")
+            deliveries.append(f"{row['id']} ({label}): WhatsApp {action}. SID: {result.sid}")
         else:
-            deliveries.append(f"{row['id']}: {result.message}")
+            deliveries.append(f"{row['id']} ({label}): {result.message}")
     if not deliveries:
         deliveries.append("No pending autopilot WhatsApp messages to send.")
     return deliveries
+
+
+def request_delivery_label(row: dict[str, Any]) -> str:
+    watched = row.get("watched_name") or "unknown family member"
+    recipient = row.get("recipient_name") or "unknown recipient"
+    phone = row.get("recipient_phone") or "no WhatsApp number"
+    if row.get("request_type") == "field_report":
+        return f"{recipient} checking on {watched}, to {phone}"
+    return f"{watched} direct check-in, to {phone}"
 
 
 def scan_reason(actions: list[str], deliveries: list[str]) -> str:
