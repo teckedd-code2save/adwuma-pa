@@ -515,6 +515,7 @@ label:has(input[type="radio"]:checked) {
 .ap-request-pair.ap-pair-answered:not(.ap-pair-red) { opacity: .86; }
 .ap-bubble { border: 1px solid var(--ap-line); border-radius: 12px; color: var(--ap-ink); font-size: 13px; line-height: 1.45; max-width: 88%; padding: 9px 11px; }
 .ap-bubble strong { color: var(--ap-ink); display: block; font-size: 12px; margin-bottom: 3px; }
+.ap-bubble em { background: rgba(15, 23, 42, .06); border-radius: 7px; color: var(--ap-ink-soft); display: block; font-size: 11px; font-style: normal; margin-top: 6px; padding: 5px 7px; }
 .ap-bubble span { color: var(--ap-muted); display: block; font-size: 11px; margin-top: 5px; }
 .ap-bubble-system { background: var(--ap-surface-soft); justify-self: start; border-bottom-left-radius: 4px; }
 .ap-bubble-responder { background: var(--ap-accent-soft); border-color: rgba(5, 150, 105, .25); justify-self: end; border-bottom-right-radius: 4px; }
@@ -952,7 +953,31 @@ def family_pulse_html(limit=10):
         SELECT r.id, r.member_id, r.token, r.request_type, r.reason_code, r.reason_detail, r.priority, r.status,
                r.related_alert_id,
                r.created_at, m.name, m.location_city, COALESCE(m.family_role, 'family') AS family_role,
-               c.name AS contact_name, c.location_city AS contact_city
+               c.name AS contact_name, c.location_city AS contact_city,
+               (
+                 SELECT o.recipient FROM outbound_messages o
+                 WHERE o.request_id = r.id
+                 ORDER BY o.created_at DESC
+                 LIMIT 1
+               ) AS latest_recipient,
+               (
+                 SELECT o.status FROM outbound_messages o
+                 WHERE o.request_id = r.id
+                 ORDER BY o.created_at DESC
+                 LIMIT 1
+               ) AS latest_delivery_status,
+               (
+                 SELECT COALESCE(o.error, '') FROM outbound_messages o
+                 WHERE o.request_id = r.id
+                 ORDER BY o.created_at DESC
+                 LIMIT 1
+               ) AS latest_delivery_error,
+               (
+                 SELECT o.created_at FROM outbound_messages o
+                 WHERE o.request_id = r.id
+                 ORDER BY o.created_at DESC
+                 LIMIT 1
+               ) AS latest_delivery_at
         FROM checkup_requests r
         JOIN members m ON m.id = r.member_id
         LEFT JOIN nudges n ON n.id = r.related_nudge_id
@@ -1039,6 +1064,7 @@ def family_pulse_html(limit=10):
                 "token": row.get("token"),
                 "priority": row.get("priority") or "routine",
                 "status": row.get("status") or "",
+                "delivery": delivery_line(row),
                 "case_id": row.get("related_alert_id") or item.get("primary_alert_id") or "",
             }
         )
@@ -1278,13 +1304,31 @@ def render_bubble(event):
         "action": "ap-bubble-action",
     }.get(side, "ap-bubble-system")
     footer = " · ".join(part for part in [event.get("meta") or "", short_time(event.get("at"))] if part)
+    delivery = event.get("delivery") or ""
+    delivery_html = f"<em>{esc(delivery)}</em>" if delivery else ""
     return f"""
     <div class="ap-bubble {css}">
       <strong>{esc(event.get('title') or '')}</strong>
       {esc(event.get('body') or '')}
+      {delivery_html}
       <span>{esc(footer)}</span>
     </div>
     """
+
+
+def delivery_line(row):
+    status = row.get("latest_delivery_status")
+    if not status:
+        return ""
+    recipient = row.get("latest_recipient") or "unknown recipient"
+    sent_at = short_time(row.get("latest_delivery_at"))
+    error = row.get("latest_delivery_error")
+    details = f"WhatsApp: {status} to {recipient}"
+    if sent_at:
+        details += f" · {sent_at}"
+    if error:
+        details += f" · {error}"
+    return details
 
 
 def checkin_link(token):
