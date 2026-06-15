@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 from datetime import datetime, timezone
 
 from db import database as db
@@ -21,10 +22,16 @@ def dashboard_rows() -> list[dict]:
                c.submitted_at AS last_checkin_at,
                c.summary AS last_summary,
                c.concern_level AS last_concern,
+               ra.resolved_at AS last_resolved_at,
                c.analysis_status AS last_analysis_status
         FROM members m
         LEFT JOIN checkins c ON c.id = (
           SELECT id FROM checkins WHERE member_id = m.id ORDER BY submitted_at DESC LIMIT 1
+        )
+        LEFT JOIN alerts ra ON ra.id = (
+          SELECT id FROM alerts
+          WHERE member_id = m.id AND resolved = 1 AND resolved_at IS NOT NULL
+          ORDER BY resolved_at DESC LIMIT 1
         )
         WHERE m.active = 1
         ORDER BY COALESCE(c.concern_level, 0) DESC, m.name ASC
@@ -35,7 +42,7 @@ def dashboard_rows() -> list[dict]:
 
 def with_status(member: dict) -> dict:
     concern = member.get("last_concern") or 0
-    minutes_silent = minutes_since(member.get("last_checkin_at"))
+    minutes_silent = minutes_since(latest_care_timestamp(member))
     reminder_minutes = member.get("reminder_minutes") or 10080
     amber_minutes = member.get("escalation_minutes_amber") or 14400
     red_minutes = member.get("escalation_minutes_red") or 20160
@@ -69,7 +76,7 @@ def with_status(member: dict) -> dict:
         "Reminder min": reminder_minutes,
         "Amber min": amber_minutes,
         "Red min": red_minutes,
-        "Last summary": member.get("last_summary") or "No check-in yet",
+        "Last summary": member.get("last_summary") or ("Care loop recently closed" if member.get("last_resolved_at") else "No check-in yet"),
         "Analysis": member.get("last_analysis_status") or "none",
         "Next action": next_action,
         "Care route": care_route,
@@ -89,6 +96,33 @@ def minutes_since(timestamp: str | None) -> int:
     if then.tzinfo is None:
         then = then.replace(tzinfo=timezone.utc)
     return max(0, int((datetime.now(timezone.utc) - then).total_seconds() / 60))
+
+
+def latest_care_timestamp(member: dict) -> str | None:
+    candidates = [member.get("last_checkin_at"), member.get("last_resolved_at")]
+    parsed = []
+    for value in candidates:
+        if not value:
+            continue
+        try:
+            timestamp = datetime.fromisoformat(value)
+            if timestamp.tzinfo is None:
+                timestamp = timestamp.replace(tzinfo=timezone.utc)
+            parsed.append((timestamp, value))
+        except Exception:
+            continue
+    if not parsed:
+        return None
+    return max(parsed, key=lambda item: item[0])[1]
+
+
+def closure_grace_minutes() -> int:
+    return max(0, int(os.getenv("ANI_KESE_CLOSURE_GRACE_MINUTES", "60") or 0))
+
+
+def recently_closed(member: dict) -> bool:
+    resolved_at = member.get("last_resolved_at")
+    return bool(resolved_at and latest_care_timestamp(member) == resolved_at and minutes_since(resolved_at) < closure_grace_minutes())
 
 
 def human_duration(minutes: int) -> str:
@@ -185,10 +219,16 @@ def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
         """
         SELECT m.*,
                c.submitted_at AS last_checkin_at,
-               c.concern_level AS last_concern
+               c.concern_level AS last_concern,
+               ra.resolved_at AS last_resolved_at
         FROM members m
         LEFT JOIN checkins c ON c.id = (
           SELECT id FROM checkins WHERE member_id = m.id ORDER BY submitted_at DESC LIMIT 1
+        )
+        LEFT JOIN alerts ra ON ra.id = (
+          SELECT id FROM alerts
+          WHERE member_id = m.id AND resolved = 1 AND resolved_at IS NOT NULL
+          ORDER BY resolved_at DESC LIMIT 1
         )
         WHERE m.active = 1
         ORDER BY m.name ASC
@@ -198,15 +238,23 @@ def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
         if member["id"] in excluded:
             actions.append(f"Excluded from autopilot: {member['name']}.")
             continue
-        silent = minutes_since(member.get("last_checkin_at"))
+        if recently_closed(member):
+            actions.append(f"Recently closed care loop for {member['name']}; no new request.")
+            continue
+        silent = minutes_since(latest_care_timestamp(member))
+        no_recorded_checkin = not member.get("last_checkin_at") and not member.get("last_resolved_at")
         amber = member.get("escalation_minutes_amber") or 14400
         red = member.get("escalation_minutes_red") or 20160
         contact = route_contact(member["id"])
         reminder = member.get("reminder_minutes") or 10080
         if silent >= red:
-            silent_text = human_duration(silent)
+            silent_text = "no recorded check-in yet" if no_recorded_checkin else human_duration(silent)
             red_text = human_duration(red)
-            elder_detail = f"We have not heard from {member['name']} for {silent_text}. This is past their urgent follow-up window of {red_text}."
+            elder_detail = (
+                f"We have {silent_text} for {member['name']}. This is past their urgent follow-up window of {red_text}."
+                if no_recorded_checkin
+                else f"We have not heard from {member['name']} for {silent_text}. This is past their urgent follow-up window of {red_text}."
+            )
             alert_id = db.create_alert(
                 member["id"],
                 "red_silence",
@@ -240,9 +288,13 @@ def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
             state = "Existing open urgent request reused" if existing else "Urgent check-in request queued"
             actions.append(f"{state} for {member['name']}: case {alert_id}.{routed}")
         elif silent >= amber:
-            silent_text = human_duration(silent)
+            silent_text = "no recorded check-in yet" if no_recorded_checkin else human_duration(silent)
             amber_text = human_duration(amber)
-            elder_detail = f"We have not heard from {member['name']} for {silent_text}. This is past their check-soon window of {amber_text}."
+            elder_detail = (
+                f"We have {silent_text} for {member['name']}. This is past their check-soon window of {amber_text}."
+                if no_recorded_checkin
+                else f"We have not heard from {member['name']} for {silent_text}. This is past their check-soon window of {amber_text}."
+            )
             alert_id = db.create_alert(
                 member["id"],
                 "amber_silence",
@@ -276,9 +328,13 @@ def scan_silence(excluded_member_ids: list[str] | None = None) -> list[str]:
             state = "Existing open check-soon request reused" if existing else "Check-soon request queued"
             actions.append(f"{state} for {member['name']}: case {alert_id}.{routed}")
         elif silent >= reminder:
-            silent_text = human_duration(silent)
+            silent_text = "no recorded check-in yet" if no_recorded_checkin else human_duration(silent)
             reminder_text = human_duration(reminder)
-            elder_detail = f"We have not heard from {member['name']} for {silent_text}. Their routine check-in window is {reminder_text}."
+            elder_detail = (
+                f"We have {silent_text} for {member['name']}. Their routine check-in window is {reminder_text}."
+                if no_recorded_checkin
+                else f"We have not heard from {member['name']} for {silent_text}. Their routine check-in window is {reminder_text}."
+            )
             alert_id = db.create_alert(
                 member["id"],
                 "reminder_silence",

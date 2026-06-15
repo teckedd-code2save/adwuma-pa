@@ -589,7 +589,11 @@ def _decode_json_list(value: Any) -> list[Any]:
 
 def _is_noop_action(value: Any) -> bool:
     text = str(value)
-    return text.startswith("No silence escalations") or text.startswith("Excluded from autopilot")
+    return (
+        text.startswith("No silence escalations")
+        or text.startswith("Excluded from autopilot")
+        or text.startswith("Recently closed care loop")
+    )
 
 
 def _is_noop_delivery(value: Any) -> bool:

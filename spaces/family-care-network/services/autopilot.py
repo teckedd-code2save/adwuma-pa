@@ -107,10 +107,13 @@ def send_autopilot_whatsapp() -> list[str]:
 
 def scan_reason(actions: list[str], deliveries: list[str]) -> str:
     excluded_actions = [item for item in actions if item.startswith("Excluded from autopilot")]
+    recently_closed_actions = [item for item in actions if item.startswith("Recently closed care loop")]
     meaningful_actions = [
         item
         for item in actions
-        if not item.startswith("No silence escalations") and not item.startswith("Excluded from autopilot")
+        if not item.startswith("No silence escalations")
+        and not item.startswith("Excluded from autopilot")
+        and not item.startswith("Recently closed care loop")
     ]
     meaningful_deliveries = [
         item
@@ -125,6 +128,8 @@ def scan_reason(actions: list[str], deliveries: list[str]) -> str:
         return "Frequency cap reached; no WhatsApp sent."
     if excluded_actions and not meaningful_actions:
         return "Excluded from autopilot."
+    if recently_closed_actions and not meaningful_actions:
+        return "Recently closed care loop; no new WhatsApp sent."
     if meaningful_actions:
         if all(item.startswith("Existing open") for item in meaningful_actions):
             return "Existing open request reused; no new WhatsApp sent."
