@@ -145,7 +145,7 @@ def seed_demo_data() -> None:
                  checkin_url_token, reminder_minutes, escalation_minutes_amber, escalation_minutes_red, created_at)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                (*member, member[0].replace("_", "-"), 10080, 14400, 20160, now_iso()),
+                (*member, member[0].replace("_", "-"), 10, 20, 30, now_iso()),
             )
         conn.execute(
             "INSERT INTO first_party_contacts (id, elder_id, contact_id, priority) VALUES (?, ?, ?, ?)",
@@ -245,9 +245,9 @@ def add_member(
                 family_role,
                 int(is_coordinator),
                 token,
-                10080,
-                14400,
-                20160,
+                10,
+                20,
+                30,
                 1,
                 1,
                 2,
@@ -484,7 +484,7 @@ def set_setting(key: str, value: Any) -> None:
 def autopilot_settings() -> dict[str, Any]:
     return {
         "enabled": bool(get_setting("autopilot.enabled", False)),
-        "scan_interval_minutes": int(get_setting("autopilot.scan_interval_minutes", 30)),
+        "scan_interval_minutes": int(get_setting("autopilot.scan_interval_minutes", 10)),
         "send_whatsapp": bool(get_setting("autopilot.send_whatsapp", False)),
         "excluded_member_ids": list(get_setting("autopilot.excluded_member_ids", [])),
         "last_scan_at": get_setting("autopilot.last_scan_at", None),
@@ -498,7 +498,7 @@ def save_autopilot_settings(
     send_whatsapp: bool,
     excluded_member_ids: list[str] | None = None,
 ) -> dict[str, Any]:
-    interval = max(1, int(scan_interval_minutes or 30))
+    interval = max(1, int(scan_interval_minutes or 10))
     set_setting("autopilot.enabled", bool(enabled))
     set_setting("autopilot.scan_interval_minutes", interval)
     set_setting("autopilot.send_whatsapp", bool(send_whatsapp))
@@ -507,13 +507,13 @@ def save_autopilot_settings(
 
 
 def migrate_autopilot_defaults() -> None:
-    marker = get_setting("autopilot.migrated_interval_30", False)
+    marker = get_setting("autopilot.migrated_interval_10", False)
     if marker:
         return
     current = get_setting("autopilot.scan_interval_minutes", None)
-    if current in (None, 15):
-        set_setting("autopilot.scan_interval_minutes", 30)
-    set_setting("autopilot.migrated_interval_30", True)
+    if current in (None, 15, 30):
+        set_setting("autopilot.scan_interval_minutes", 10)
+    set_setting("autopilot.migrated_interval_10", True)
 
 
 def add_autopilot_run(

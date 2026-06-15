@@ -1,0 +1,17 @@
+Ani Kese means big eye in Twi. It is a small-model care network for Ghanaian families: a coordinator can register relatives, set care policies, and let the system watch for missed check-ins.
+
+The dashboard starts with the family state. Each person has a role, a location, a preferred language, and affiliations that tell Ani Kese who should be contacted when that person needs follow-up.
+
+The goal is not just to send reminders. The goal is to close the family care loop. When someone is quiet for too long, the system opens a care case, creates a secure check-in request, and routes it to the right person.
+
+This is built for small models. Speech goes through MMS ASR for Akan, Twi, and Fante. Translation uses an NLLB Twi-to-English model. Qwen produces structured concern analysis with evidence. MMS TTS is available for voice prompts. The heavy inference runs on Modal, and if a model fails, the app marks the item for review instead of inventing a score.
+
+We also worked on model quality. The ASR evaluation Space compares MMS, a published Akan Whisper fine-tune, a community Akan model, and an MMS Akan fine-tune path trained on GhanaNLP Twi speech. That matters because the care decision is only as good as the transcript and translation.
+
+In the second part, Auntie Afia has missed her check-in window. Ani Kese opens one case and sends two linked requests: a direct check-in to Auntie Afia, and a relative update request to Edward, the assigned family contact.
+
+Edward receives the WhatsApp nudge, opens the secure link, and sends a field report. The response is attached to the exact request, so the coordinator can see what was asked, who answered, when WhatsApp sent it, and what evidence came back.
+
+Ani Kese summarizes the reply, shows the care evidence, and keeps the case open until the coordinator confirms the follow-up. Once the loop is closed, the dashboard clears the priority queue and the next cycle starts from the latest response or closure time.
+
+The system runs on Hugging Face Spaces for the dashboard, Modal for inference and scheduled scans, and Twilio for WhatsApp delivery. It is small, practical, and designed around how families actually coordinate care: messages, relatives, evidence, and closure.

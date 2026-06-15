@@ -3005,9 +3005,9 @@ def update_escalation_settings(
 def load_escalation_settings(member_id):
     if not member_id:
         return (
-            gr.Number(value=10080),
-            gr.Number(value=14400),
-            gr.Number(value=20160),
+            gr.Number(value=10),
+            gr.Number(value=20),
+            gr.Number(value=30),
             gr.Number(value=1),
             gr.Number(value=1),
             gr.Number(value=2),
@@ -3023,9 +3023,9 @@ def load_escalation_settings(member_id):
     )
     if not member:
         return (
-            gr.Number(value=10080),
-            gr.Number(value=14400),
-            gr.Number(value=20160),
+            gr.Number(value=10),
+            gr.Number(value=20),
+            gr.Number(value=30),
             gr.Number(value=1),
             gr.Number(value=1),
             gr.Number(value=2),
@@ -3357,7 +3357,7 @@ def build_app():
                     label="Do not notify",
                 )
                 gr.Markdown(
-                    "Modal cron wakes the system every 30 minutes. This setting controls how often Ani Kɛse actually scans and sends, so skipped cron ticks are expected when the saved interval has not elapsed. People checked in “Do not notify” are ignored by autopilot."
+                    "Modal cron wakes the system every 10 minutes for demo cadence. This setting controls how often Ani Kɛse actually scans and sends, so skipped cron ticks are expected when the saved interval has not elapsed. People checked in “Do not notify” are ignored by autopilot."
                 )
                 with gr.Row():
                     save_autopilot_btn = gr.Button("Save autopilot settings")
@@ -3376,9 +3376,9 @@ def build_app():
                     gr.HTML('<div class="ap-section-title">Care timing and frequency</div>')
                     policy_member = gr.Dropdown(choices=member_choices(), label="Family member")
                     with gr.Row():
-                        reminder_minutes = gr.Number(label="Routine check-in after minutes", value=10080, precision=0)
-                        amber_minutes = gr.Number(label="Ask family to check soon after minutes", value=14400, precision=0)
-                        red_minutes = gr.Number(label="Urgent follow-up after minutes", value=20160, precision=0)
+                        reminder_minutes = gr.Number(label="Routine check-in after minutes", value=10, precision=0)
+                        amber_minutes = gr.Number(label="Ask family to check soon after minutes", value=20, precision=0)
+                        red_minutes = gr.Number(label="Urgent follow-up after minutes", value=30, precision=0)
                     with gr.Row():
                         routine_messages_per_day = gr.Number(label="Routine messages per day", value=1, precision=0)
                         amber_messages_per_day = gr.Number(label="Check-soon messages per day", value=1, precision=0)
