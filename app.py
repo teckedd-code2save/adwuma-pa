@@ -1857,9 +1857,21 @@ def concern_meter_html(level):
 
 def status_cards_html():
     rows = dashboard_rows()
-    counts = {status: 0 for status in ["Routine", "Check soon", "Needs attention", "Urgent follow-up"]}
-    for row in rows:
-        counts[row["Status"]] = counts.get(row["Status"], 0) + 1
+    open_alerts = [row for row in alert_rows() if row["State"].lower() == "open"]
+    counts = {
+        "Routine": max(0, len(rows) - len({row["Member"] for row in open_alerts})),
+        "Check soon": 0,
+        "Needs attention": 0,
+        "Urgent follow-up": 0,
+    }
+    for alert in open_alerts:
+        alert_type = (alert["Type"] or "").lower()
+        if "red" in alert_type:
+            counts["Urgent follow-up"] += 1
+        elif "amber" in alert_type or "needs_review" in alert_type:
+            counts["Needs attention"] += 1
+        elif "reminder" in alert_type:
+            counts["Check soon"] += 1
     loop = loop_closure_stats()
     tiles = [
         ("ap-urgent", ICON_SIREN, "Urgent follow-up", counts.get("Urgent follow-up", 0), "act now"),
