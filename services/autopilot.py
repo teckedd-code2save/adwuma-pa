@@ -82,6 +82,8 @@ def send_autopilot_whatsapp() -> list[str]:
                r.request_type,
                r.status,
                m.name AS watched_name,
+               CASE WHEN r.request_type = 'field_report' THEN COALESCE(c.id, m.id) ELSE m.id END AS cap_member_id,
+               CASE WHEN r.request_type = 'field_report' THEN COALESCE(c.name, m.name) ELSE m.name END AS cap_member_name,
                COALESCE(c.name, m.name) AS recipient_name,
                COALESCE(c.whatsapp, m.whatsapp, c.phone, m.phone) AS recipient_phone
         FROM checkup_requests r
@@ -101,16 +103,20 @@ def send_autopilot_whatsapp() -> list[str]:
     deliveries = []
     since = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat(timespec="seconds")
     for row in open_requests:
-        cap = db.member_frequency_cap(row["member_id"], row["priority"] or "routine")
-        sent = db.outbound_count_for_member_priority(
-            row["member_id"],
+        cap_member_id = row.get("cap_member_id") or row["member_id"]
+        cap = db.member_frequency_cap(cap_member_id, row["priority"] or "routine")
+        sent = db.outbound_count_for_recipient_priority(
+            cap_member_id,
             row["priority"] or "routine",
             since,
             row.get("request_type"),
         )
         label = request_delivery_label(row)
         if sent >= cap:
-            deliveries.append(f"{row['id']} ({label}): Frequency cap reached ({sent}/{cap} today); no WhatsApp sent.")
+            deliveries.append(
+                f"{row['id']} ({label}): Frequency cap reached for {row.get('cap_member_name') or 'this recipient'} "
+                f"({sent}/{cap} today); no WhatsApp sent."
+            )
             continue
         result = twilio_client.send_request_link(row["id"])
         action = "resent" if row["status"] == "sent" else "sent"
