@@ -528,6 +528,9 @@ label:has(input[type="radio"]:checked) {
 .ap-resolve-grid input { background: #fff !important; border: 1px solid var(--ap-line-strong) !important; border-radius: 8px !important; color: var(--ap-ink) !important; font-size: 13px !important; min-width: 0; padding: 8px 9px !important; }
 .ap-resolve-grid button { background: var(--ap-ink) !important; border: 1px solid var(--ap-ink) !important; border-radius: 8px !important; color: #fff !important; cursor: pointer; font-size: 13px !important; font-weight: 800 !important; padding: 8px 10px !important; white-space: nowrap; }
 .ap-resolve-frame { display: none; height: 0; width: 0; }
+.ap-sandbox-note { background: #fef3c7; border: 1px solid #d97706; border-radius: 10px; color: #111827; font-size: 14px; line-height: 1.45; margin: 8px 0 14px; padding: 10px 12px; }
+.ap-sandbox-note strong { color: #111827; font-weight: 900; }
+.ap-sandbox-code { background: #111827; border-radius: 7px; color: #fff !important; display: inline-block; font-weight: 900; margin: 0 2px; padding: 2px 7px; }
 
 /* ------------------------------ Pulse rows ------------------------------ */
 .ap-pulse-row {
@@ -2113,6 +2116,7 @@ def add_member(name, phone, whatsapp, city, region, language, family_role, is_co
         choices,
         choices,
         choices,
+        autopilot_run_table_value(),
     )
 
 
@@ -3179,9 +3183,14 @@ def build_app():
                         new_name = gr.Textbox(label="Name")
                         new_phone = gr.Textbox(label="Phone")
                         new_whatsapp = gr.Textbox(label="WhatsApp")
-                    gr.Markdown(
-                        "Before WhatsApp messages can deliver in the Twilio sandbox, ask this person to message "
-                        "`join catch-thousand` to `+1 415 523 8886` on WhatsApp."
+                    gr.HTML(
+                        """
+                        <div class="ap-sandbox-note">
+                          <strong>Twilio sandbox step:</strong> before WhatsApp messages can deliver, ask this person to send
+                          <span class="ap-sandbox-code">join catch-thousand</span>
+                          to <span class="ap-sandbox-code">+1 415 523 8886</span> on WhatsApp.
+                        </div>
+                        """
                     )
                     with gr.Row():
                         new_city = gr.Textbox(label="City")
