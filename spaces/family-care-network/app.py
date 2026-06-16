@@ -42,7 +42,7 @@ CHECKIN_HEADERS = ["Submitted", "Source", "Input", "Status", "Concern", "Summary
 REQUEST_HEADERS = ["Request", "Token", "Member", "Type", "Reason", "Priority", "Status", "Created", "Completed"]
 NUDGE_HEADERS = ["Sent", "Contact", "Request", "Responded", "Check-in"]
 AFFILIATION_HEADERS = ["Subject", "Related", "Relationship", "Care role", "Priority", "Coordinator", "Notes"]
-OUTBOUND_HEADERS = ["Created", "Recipient", "Channel", "Status", "SID", "Error", "Body"]
+OUTBOUND_HEADERS = ["Created", "Recipient", "Channel", "Status", "Error"]
 AUTOPILOT_RUN_HEADERS = ["Started", "Actor", "Status", "Reason", "Actions", "Deliveries", "Details"]
 ASR_MODEL_CHOICES = [
     ("MMS-1B-all (Akan)", "primary"),
@@ -750,7 +750,18 @@ def request_table_value():
 
 
 def outbound_table_value():
-    return table_value(db.outbound_rows(), OUTBOUND_HEADERS)
+    rows = []
+    for row in db.outbound_rows():
+        rows.append(
+            {
+                "Created": row.get("Created"),
+                "Recipient": row.get("Recipient"),
+                "Channel": row.get("Channel"),
+                "Status": row.get("Status"),
+                "Error": row.get("Error"),
+            }
+        )
+    return table_value(rows, OUTBOUND_HEADERS)
 
 
 def autopilot_run_table_value():
@@ -1320,7 +1331,7 @@ def delivery_line(row):
     status = row.get("latest_delivery_status")
     if not status:
         return ""
-    recipient = row.get("latest_recipient") or "unknown recipient"
+    recipient = privacy_contact(row.get("latest_recipient")) or "hidden contact"
     sent_at = short_time(row.get("latest_delivery_at"))
     error = row.get("latest_delivery_error")
     details = f"WhatsApp: {status} to {recipient}"
@@ -1345,6 +1356,17 @@ def short_time(value):
         return parsed.strftime("%b %-d, %H:%M")
     except Exception:
         return str(value)
+
+
+def privacy_contact(value):
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    prefix = "whatsapp:" if text.lower().startswith("whatsapp:") else ""
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if len(digits) >= 4:
+        return f"{prefix}+***{digits[-4:]}"
+    return "hidden"
 
 
 def item_sort_name(item):
@@ -1687,7 +1709,7 @@ def member_registry_html():
                 <span>{active}</span>
               </div>
               <div class="ap-item-meta">{row['family_role']}{coordinator} · {row['location_city'] or 'city unset'}, {row['location_region'] or 'region unset'}</div>
-              <div class="ap-item-note">{row['phone']} · {row['whatsapp'] or 'WhatsApp unset'} · {row['language']}</div>
+              <div class="ap-item-note">{privacy_contact(row['phone'])} · {privacy_contact(row['whatsapp']) or 'WhatsApp unset'} · {row['language']}</div>
             </article>
             """
         )
@@ -2006,8 +2028,8 @@ def member_profile_html(member_id):
     <div class="ap-profile-row"><strong>Role</strong><br>{esc(member.get('family_role') or 'relative')}</div>
     <div class="ap-profile-row"><strong>Coordinator</strong><br>{'Yes' if member.get('is_coordinator') else 'No'}</div>
     <div class="ap-profile-row"><strong>Language</strong><br>{esc(member.get('language') or 'Unknown')}</div>
-    <div class="ap-profile-row"><strong>Phone</strong><br>{esc(member.get('phone') or '')}</div>
-    <div class="ap-profile-row"><strong>WhatsApp</strong><br>{esc(member.get('whatsapp') or member.get('phone') or '')}</div>
+    <div class="ap-profile-row"><strong>Phone</strong><br>{esc(privacy_contact(member.get('phone')))}</div>
+    <div class="ap-profile-row"><strong>WhatsApp</strong><br>{esc(privacy_contact(member.get('whatsapp') or member.get('phone')))}</div>
     <div class="ap-profile-row"><strong>First-party contacts</strong><br>{esc(contacts)}</div>
     <div class="ap-profile-row"><strong>Policy</strong><br>check soon {esc(member.get('reminder_minutes'))} min, needs attention {esc(member.get('escalation_minutes_amber'))} min, urgent follow-up {esc(member.get('escalation_minutes_red'))} min</div>
   </div>
@@ -2182,7 +2204,7 @@ def add_member(name, phone, whatsapp, city, region, language, family_role, is_co
     choices = member_dropdown()
     member = db.one("SELECT phone, whatsapp FROM members WHERE id = ?", (member_id,))
     return (
-        f"Saved {name}. Phone: {member['phone']}. WhatsApp: {member['whatsapp']}.",
+        f"Saved {name}. Contact details are hidden in the public UI.",
         member_registry_html(),
         storage_status_html(),
         status_cards_html(),
@@ -2228,7 +2250,7 @@ def save_member_edits(member_id, name, phone, whatsapp, city, region, language, 
     choices = member_dropdown()
     member = db.one("SELECT phone, whatsapp FROM members WHERE id = ?", (member_id,))
     return (
-        f"Updated {name}. Phone: {member['phone']}. WhatsApp: {member['whatsapp']}.",
+        f"Updated {name}. Contact details are hidden in the public UI.",
         member_registry_html(),
         storage_status_html(),
         member_profile_html(member_id),

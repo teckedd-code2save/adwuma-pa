@@ -134,10 +134,21 @@ def send_autopilot_whatsapp() -> list[str]:
 def request_delivery_label(row: dict[str, Any]) -> str:
     watched = row.get("watched_name") or "unknown family member"
     recipient = row.get("recipient_name") or "unknown recipient"
-    phone = row.get("recipient_phone") or "no WhatsApp number"
+    phone = mask_contact(row.get("recipient_phone")) or "number hidden"
     if row.get("request_type") == "field_report":
         return f"{recipient} checking on {watched}, to {phone}"
     return f"{watched} direct check-in, to {phone}"
+
+
+def mask_contact(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    prefix = "whatsapp:" if text.lower().startswith("whatsapp:") else ""
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if len(digits) >= 4:
+        return f"{prefix}+***{digits[-4:]}"
+    return "hidden"
 
 
 def scan_reason(actions: list[str], deliveries: list[str]) -> str:
